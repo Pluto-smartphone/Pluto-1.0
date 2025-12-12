@@ -71,7 +71,7 @@ const Shop: React.FC = () => {
       }
     }
 
-    // Sort
+  /*   // Sort
     filtered.sort((a, b) => {
       switch (sortBy) {
         case 'price-low':
@@ -83,7 +83,7 @@ const Shop: React.FC = () => {
         default:
           return a.name.localeCompare(b.name);
       }
-    });
+    }); */
 
     return filtered;
   };
@@ -148,7 +148,7 @@ const Shop: React.FC = () => {
               </Select>
 
               {/* Sort */}
-              <Select value={sortBy} onValueChange={setSortBy}>
+              {/* <Select value={sortBy} onValueChange={setSortBy}>
                 <SelectTrigger className="w-40">
                   <SelectValue placeholder={t('sort')} />
                 </SelectTrigger>
@@ -158,7 +158,7 @@ const Shop: React.FC = () => {
                   <SelectItem value="price-high">{t('sortPriceHigh')}</SelectItem>
                   <SelectItem value="brand">{t('sortBrand')}</SelectItem>
                 </SelectContent>
-              </Select>
+              </Select> */}
             </div>
 
             {/* View Mode */}
