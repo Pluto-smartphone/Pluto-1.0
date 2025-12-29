@@ -19,7 +19,7 @@ serve(async (req) => {
   );
 
   try {
-    const { cartItems } = await req.json();
+    const { cartItems, channel } = await req.json();
     
     if (!cartItems || cartItems.length === 0) {
       throw new Error("Cart is empty");
@@ -107,6 +107,7 @@ serve(async (req) => {
       cancelUrl: `${origin}/payment`,
       metadata: {
         user_id: user?.id || "guest",
+        channel: channel || "full", // 'full' for credit card, 'promptpay' for QR, 'bank-transfer' for bank transfer
       },
     });
 

@@ -12,6 +12,8 @@ import Sell from "./pages/Sell";
 import Cart from "./pages/Cart";
 import Payment from "./pages/Payment";
 import PaymentSuccess from "./pages/PaymentSuccess";
+import PromptPayPayment from "./pages/PromptPayPayment";
+import BankTransferPayment from "./pages/BankTransferPayment";
 import About from "./pages/About";
 import ProductDetail from "./pages/ProductDetail";
 import NotFound from "./pages/NotFound";
@@ -36,6 +38,8 @@ const App = () => (
                 <Route path="/sell" element={<Sell />} />
                 <Route path="/cart" element={<Cart />} />
                 <Route path="/payment" element={<Payment />} />
+                <Route path="/payment/promptpay" element={<PromptPayPayment />} />
+                <Route path="/payment/bank-transfer" element={<BankTransferPayment />} />
                 <Route path="/payment-success" element={<PaymentSuccess />} />
                 <Route path="/about" element={<About />} />
                 <Route path="/privacy" element={<Privacy />} />
