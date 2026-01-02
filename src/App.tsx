@@ -6,6 +6,8 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { CartProvider } from "@/contexts/CartContext";
 import { WishlistProvider } from "@/contexts/WishlistContext";
+import { CookieConsentProvider } from "@/contexts/CookieConsentContext";
+import CookieConsentBanner from "@/components/layout/CookieConsentBanner";
 import Index from "./pages/Index";
 import Shop from "./pages/Shop";
 import Sell from "./pages/Sell";
@@ -26,12 +28,14 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <LanguageProvider>
-        <CartProvider>
-          <WishlistProvider>
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
-              <Routes>
+        <CookieConsentProvider>
+          <CartProvider>
+            <WishlistProvider>
+              <Toaster />
+              <Sonner />
+              <BrowserRouter>
+                <CookieConsentBanner />
+                <Routes>
                 <Route path="/" element={<Index />} />
                 <Route path="/shop" element={<Shop />} />
                 <Route path="/product/:id" element={<ProductDetail />} />
@@ -46,10 +50,11 @@ const App = () => (
                 <Route path="/data-deletion" element={<DataDeletion />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
-              </Routes>
-            </BrowserRouter>
-          </WishlistProvider>
-        </CartProvider>
+                </Routes>
+              </BrowserRouter>
+            </WishlistProvider>
+          </CartProvider>
+        </CookieConsentProvider>
       </LanguageProvider>
     </TooltipProvider>
   </QueryClientProvider>

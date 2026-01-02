@@ -1,11 +1,13 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Facebook, Instagram, Mail, Phone, MapPin } from 'lucide-react';
+import { Facebook, Instagram, Mail, Phone, MapPin, Cookie } from 'lucide-react';
 import Icon from 'lucide-react/dynamicIconImports';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useCookieConsent } from '@/contexts/CookieConsentContext';
 
 const Footer: React.FC = () => {
   const { t } = useLanguage();
+  const { resetConsent } = useCookieConsent();
 
   return (
     <footer className="bg-secondary border-t border-border">
@@ -128,7 +130,15 @@ const Footer: React.FC = () => {
         </div>
 
         {/* Bottom Bar */}
-        <div className="mt-12 pt-8 border-t border-border flex justify-center">
+        <div className="mt-12 pt-8 border-t border-border flex flex-col sm:flex-row items-center justify-center gap-4">
+          <button
+            onClick={resetConsent}
+            className="flex items-center gap-1.5 text-muted-foreground hover:text-primary transition-colors text-sm"
+          >
+            <Cookie className="h-4 w-4" />
+            {t('cookieSettings')}
+          </button>
+          <span className="hidden sm:inline text-muted-foreground">|</span>
           <p className="text-muted-foreground text-sm">
             © 2024 Pluto. {t('language') === 'th' ? 'สงวนลิขสิทธิ์' : 'All rights reserved.'}
           </p>

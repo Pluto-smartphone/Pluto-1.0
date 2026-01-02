@@ -166,6 +166,13 @@ const translations = {
     fullName: 'Full Name',
     subject: 'Subject',
     message: 'Message',
+
+    // Cookie Consent
+    cookieMessage: 'We use cookies to enhance your browsing experience. By continuing to use our site, you agree to our use of cookies.',
+    cookieAccept: 'Accept',
+    cookieDecline: 'Decline',
+    cookieSettings: 'Cookie Settings',
+    cookieLearnMore: 'Learn more',
   },
   th: {
     // Navigation
@@ -322,6 +329,13 @@ const translations = {
     fullName: 'ชื่อ-นามสกุล',
     subject: 'หัวข้อ',
     message: 'ข้อความ',
+
+    // Cookie Consent
+    cookieMessage: 'เราใช้คุกกี้เพื่อปรับปรุงประสบการณ์การใช้งานของคุณ โดยการใช้เว็บไซต์ของเราต่อไป แสดงว่าคุณยอมรับการใช้คุกกี้ของเรา',
+    cookieAccept: 'ยอมรับ',
+    cookieDecline: 'ปฏิเสธ',
+    cookieSettings: 'ตั้งค่าคุกกี้',
+    cookieLearnMore: 'เรียนรู้เพิ่มเติม',
   }
 };
 
