@@ -29,6 +29,7 @@ export function useAuth() {
   return {
     user,
     loading,
-    signOut
+    signOut,
+    emailVerified: user?.email_confirmed_at != null
   }
 }
