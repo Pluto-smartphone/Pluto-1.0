@@ -268,19 +268,12 @@ const Cart: React.FC = () => {
                       </span>
                     </div>
 
-                    <div className="flex justify-between">
-                      <span>{t('tax')}</span>
-                      <span>
-                        {formatPrice(selectedTotal * 0.07)}
-                      </span>
-                    </div>
-
                     <Separator />
 
                     <div className="flex justify-between font-bold">
                       <span>{t('total')}</span>
                       <span className="text-primary">
-                        {formatPrice(selectedTotal * 1.07)}
+                        {formatPrice(selectedTotal)}
                       </span>
                     </div>
 

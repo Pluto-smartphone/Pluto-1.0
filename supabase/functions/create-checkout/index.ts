@@ -1,7 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
-import { getPaymentProvider } from "../_shared/payment-config.ts";
-import type { PaymentLineItem } from "../_shared/payment-provider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -19,7 +18,7 @@ serve(async (req) => {
   );
 
   try {
-    const { cartItems, channel } = await req.json();
+    const { cartItems } = await req.json();
     
     if (!cartItems || cartItems.length === 0) {
       throw new Error("Cart is empty");
@@ -82,32 +81,47 @@ serve(async (req) => {
       }
     }
     
-    // Get payment provider (configurable via PAYMENT_PROVIDER env var)
-    const paymentProvider = getPaymentProvider();
+    // Initialize Stripe
+    const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
+      apiVersion: "2025-08-27.basil",
+    });
+
+    // Check if customer exists
+    let customerId;
+    if (user?.email) {
+      const customers = await stripe.customers.list({ email: user.email, limit: 1 });
+      if (customers.data.length > 0) {
+        customerId = customers.data[0].id;
+      }
+    }
 
     // Create line items using validated database prices
-    const lineItems: PaymentLineItem[] = cartItems.map((item: any) => {
+    const lineItems = cartItems.map((item: any) => {
       const product = productMap.get(item.id);
       return {
-        name: product!.name,
-        description: `${product!.brand} - ${product!.condition}`,
-        amount: Math.round(product!.price * 100), // Convert to smallest unit (satang for THB)
+        price_data: {
+          currency: "thb",
+          product_data: {
+            name: product!.name,
+            description: `${product!.brand} - ${product!.condition}`,
+            images: product!.image_url ? [product!.image_url] : [],
+          },
+          unit_amount: Math.round(product!.price * 100), // Use database price, not client price
+        },
         quantity: item.quantity,
-        imageUrl: product!.image_url || undefined,
       };
     });
 
-    // Create checkout session using payment provider abstraction
-    const origin = req.headers.get("origin") || "";
-    const session = await paymentProvider.createCheckoutSession({
-      lineItems,
-      customerEmail: user?.email,
-      userId: user?.id || "guest",
-      successUrl: `${origin}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
-      cancelUrl: `${origin}/payment`,
+    // Create checkout session
+    const session = await stripe.checkout.sessions.create({
+      customer: customerId,
+      customer_email: customerId ? undefined : user?.email,
+      line_items: lineItems,
+      mode: "payment",
+      success_url: `${req.headers.get("origin")}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${req.headers.get("origin")}/payment`,
       metadata: {
         user_id: user?.id || "guest",
-        channel: channel || "full", // 'full' for credit card, 'promptpay' for QR, 'bank-transfer' for bank transfer
       },
     });
 
@@ -117,11 +131,9 @@ serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error creating checkout:", error);
-    return new Response(JSON.stringify({ 
-      error: error.message || "Payment processing failed" 
-    }), {
+    return new Response(JSON.stringify({ error: "Payment processing failed" }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 500,
     });

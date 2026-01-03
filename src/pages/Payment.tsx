@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { CreditCard, Lock, ArrowLeft, CheckCircle, QrCode, Building2 } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { CreditCard, Lock, ArrowLeft, CheckCircle } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -16,12 +16,11 @@ import { useToast } from '@/hooks/use-toast';
 
 const Payment: React.FC = () => {
   const { items, getCartTotal, clearCart } = useCart();
-  const { t, language } = useLanguage();
+  const { t } = useLanguage();
   const { toast } = useToast();
-  const navigate = useNavigate();
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentComplete, setPaymentComplete] = useState(false);
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<string>('credit-card');
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('th-TH', {
@@ -30,11 +29,11 @@ const Payment: React.FC = () => {
     }).format(price);
   };
 
-  const handlePayment = async (channel: string) => {
+  const handlePayment = async () => {
     if (items.length === 0) {
       toast({
-        title: language === 'th' ? 'ตะกร้าว่าง' : 'Cart is empty',
-        description: language === 'th' ? 'กรุณาเพิ่มสินค้าในตะกร้า' : 'Please add items to cart',
+        title: t('language') === 'th' ? 'ตะกร้าว่าง' : 'Cart is empty',
+        description: t('language') === 'th' ? 'กรุณาเพิ่มสินค้าในตะกร้า' : 'Please add items to cart',
         variant: 'destructive',
       });
       return;
@@ -46,11 +45,14 @@ const Payment: React.FC = () => {
       // Get current session
       const { data: { session } } = await supabase.auth.getSession();
       
+      const subtotal = getCartTotal();
+      const tax = paymentMethod === 'credit-card' ? subtotal * 0.07 : 0;
+      const totalAmount = subtotal + tax;
+
       const { data, error } = await supabase.functions.invoke('create-checkout', {
         body: {
           cartItems: items,
-          totalAmount: getCartTotal() * 1.07, // Include tax
-          channel: channel, // 'full' for credit card, 'promptpay' for QR
+          totalAmount: totalAmount,
         },
         headers: session ? {
           Authorization: `Bearer ${session.access_token}`,
@@ -59,21 +61,15 @@ const Payment: React.FC = () => {
 
       if (error) throw error;
 
-      if (channel === 'promptpay' && data?.url) {
-        // Navigate to PromptPay page
-        navigate(`/payment/promptpay?session_id=${data.sessionId}`);
-      } else if (channel === 'bank-transfer') {
-        // Navigate to bank transfer page
-        navigate('/payment/bank-transfer');
-      } else if (data?.url) {
-        // Redirect to payment provider checkout page (credit card)
+      if (data?.url) {
+        // Redirect to Stripe Checkout
         window.open(data.url, '_blank');
       }
     } catch (error: any) {
       console.error('Payment error:', error);
       toast({
-        title: language === 'th' ? 'เกิดข้อผิดพลาด' : 'Error',
-        description: error.message || (language === 'th' 
+        title: t('language') === 'th' ? 'เกิดข้อผิดพลาด' : 'Error',
+        description: error.message || (t('language') === 'th' 
           ? 'ไม่สามารถดำเนินการชำระเงินได้ กรุณาลองใหม่อีกครั้ง' 
           : 'Payment processing failed. Please try again.'),
         variant: 'destructive',
@@ -196,116 +192,64 @@ const Payment: React.FC = () => {
                 </CardContent>
               </Card>
 
-              {/* Payment Method Selection */}
+              {/* Payment Method */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Lock className="h-5 w-5" />
-                    {language === 'th' ? 'เลือกวิธีการชำระเงิน' : 'Select Payment Method'}
+                    {t('language') === 'th' ? 'วิธีการชำระเงิน' : 'Payment Method'}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {/* Credit Card */}
-                  <Card 
-                    className={`cursor-pointer transition-all hover:border-primary ${
-                      selectedPaymentMethod === 'credit-card' ? 'border-primary border-2' : ''
-                    }`}
-                    onClick={() => setSelectedPaymentMethod('credit-card')}
-                  >
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <CreditCard className="h-6 w-6 text-primary" />
-                          <div>
-                            <h3 className="font-semibold">
-                              {language === 'th' ? 'บัตรเครดิต' : 'Credit Card'}
-                            </h3>
-                            <p className="text-sm text-muted-foreground">
-                              {language === 'th' ? 'ชำระเงินด้วยบัตรเครดิต/เดบิต' : 'Pay with credit/debit card'}
-                            </p>
-                          </div>
-                        </div>
-                        <Button
-                          variant={selectedPaymentMethod === 'credit-card' ? 'default' : 'outline'}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handlePayment('full');
-                          }}
-                          disabled={isProcessing}
-                        >
-                          {language === 'th' ? 'ชำระเงิน' : 'Pay Now'}
-                        </Button>
+                  <div>
+                    <Label htmlFor="paymentMethod">
+                      {t('language') === 'th' ? 'เลือกวิธีการชำระเงิน' : 'Select Payment Method'}
+                    </Label>
+                    <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                      <SelectTrigger id="paymentMethod">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="credit-card">
+                          {t('language') === 'th' ? 'บัตรเครดิต' : 'Credit Card'}
+                        </SelectItem>
+                        <SelectItem value="promptpay">
+                          {t('language') === 'th' ? 'พร้อมเพย์' : 'PromptPay'}
+                        </SelectItem>
+                        <SelectItem value="bank-transfer">
+                          {t('language') === 'th' ? 'โอนเงินผ่านธนาคาร' : 'Bank Transfer'}
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {paymentMethod === 'credit-card' && (
+                    <>
+                      <div>
+                        <Label htmlFor="cardNumber">
+                          {t('language') === 'th' ? 'หมายเลขบัตร' : 'Card Number'}
+                        </Label>
+                        <Input id="cardNumber" placeholder="1234 5678 9012 3456" />
                       </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* PromptPay QR */}
-                  <Card 
-                    className={`cursor-pointer transition-all hover:border-primary ${
-                      selectedPaymentMethod === 'promptpay' ? 'border-primary border-2' : ''
-                    }`}
-                    onClick={() => setSelectedPaymentMethod('promptpay')}
-                  >
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <QrCode className="h-6 w-6 text-primary" />
-                          <div>
-                            <h3 className="font-semibold">
-                              {language === 'th' ? 'QR PromptPay' : 'QR PromptPay'}
-                            </h3>
-                            <p className="text-sm text-muted-foreground">
-                              {language === 'th' ? 'สแกน QR Code เพื่อชำระเงิน' : 'Scan QR code to pay'}
-                            </p>
-                          </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="expiry">
+                            {t('language') === 'th' ? 'วันหมดอายุ' : 'Expiry Date'}
+                          </Label>
+                          <Input id="expiry" placeholder="MM/YY" />
                         </div>
-                        <Button
-                          variant={selectedPaymentMethod === 'promptpay' ? 'default' : 'outline'}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handlePayment('promptpay');
-                          }}
-                          disabled={isProcessing}
-                        >
-                          {language === 'th' ? 'ชำระเงิน' : 'Pay Now'}
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* Bank Transfer */}
-                  <Card 
-                    className={`cursor-pointer transition-all hover:border-primary ${
-                      selectedPaymentMethod === 'bank-transfer' ? 'border-primary border-2' : ''
-                    }`}
-                    onClick={() => setSelectedPaymentMethod('bank-transfer')}
-                  >
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <Building2 className="h-6 w-6 text-primary" />
-                          <div>
-                            <h3 className="font-semibold">
-                              {language === 'th' ? 'โอนเงินผ่านธนาคาร' : 'Bank Transfer'}
-                            </h3>
-                            <p className="text-sm text-muted-foreground">
-                              {language === 'th' ? 'โอนเงินเข้าบัญชีธนาคาร' : 'Transfer to bank account'}
-                            </p>
-                          </div>
+                        <div>
+                          <Label htmlFor="cvv">CVV</Label>
+                          <Input id="cvv" placeholder="123" />
                         </div>
-                        <Button
-                          variant={selectedPaymentMethod === 'bank-transfer' ? 'default' : 'outline'}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handlePayment('bank-transfer');
-                          }}
-                          disabled={isProcessing}
-                        >
-                          {language === 'th' ? 'ดูข้อมูลบัญชี' : 'View Account'}
-                        </Button>
                       </div>
-                    </CardContent>
-                  </Card>
+                      <div>
+                        <Label htmlFor="cardName">
+                          {t('language') === 'th' ? 'ชื่อบนบัตร' : 'Name on Card'}
+                        </Label>
+                        <Input id="cardName" placeholder="John Doe" />
+                      </div>
+                    </>
+                  )}
                 </CardContent>
               </Card>
             </div>
@@ -353,10 +297,12 @@ const Payment: React.FC = () => {
                         {t('language') === 'th' ? 'ฟรี' : 'Free'}
                       </span>
                     </div>
-                    <div className="flex justify-between">
-                      <span>{t('language') === 'th' ? 'ภาษี' : 'Tax'}</span>
-                      <span>{formatPrice(getCartTotal() * 0.07)}</span>
-                    </div>
+                    {paymentMethod === 'credit-card' && (
+                      <div className="flex justify-between">
+                        <span>{t('language') === 'th' ? 'ภาษี' : 'Tax'}</span>
+                        <span>{formatPrice(getCartTotal() * 0.07)}</span>
+                      </div>
+                    )}
                   </div>
 
                   <Separator />
@@ -364,7 +310,11 @@ const Payment: React.FC = () => {
                   <div className="flex justify-between text-lg font-bold">
                     <span>{t('total')}</span>
                     <span className="text-primary">
-                      {formatPrice(getCartTotal() * 1.07)}
+                      {formatPrice(
+                        paymentMethod === 'credit-card' 
+                          ? getCartTotal() * 1.07 
+                          : getCartTotal()
+                      )}
                     </span>
                   </div>
 
