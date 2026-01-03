@@ -99,6 +99,10 @@ export class PaysolutionsPaymentProvider implements PaymentProvider {
         customerName: params.metadata?.customerName || "Customer",
       });
     } else {
+      // Get Supabase project URL for webhook
+      const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+      const postbackUrl = params.metadata?.postbackUrl || `${supabaseUrl}/functions/v1/payment-webhook`;
+      
       // Use form redirect
       return await this.createFormRedirectSession({
         referenceNo,
@@ -110,6 +114,7 @@ export class PaysolutionsPaymentProvider implements PaymentProvider {
         monthins: params.metadata?.monthins,
         successUrl: params.successUrl,
         cancelUrl: params.cancelUrl,
+        postbackUrl: postbackUrl,
       });
     }
   }
@@ -263,6 +268,7 @@ export class PaysolutionsPaymentProvider implements PaymentProvider {
     monthins?: string;
     successUrl: string;
     cancelUrl: string;
+    postbackUrl?: string;
   }): Promise<CheckoutSession> {
     // Create HTML form page that auto-submits
     const html = this.createPaymentForm(params);
@@ -289,7 +295,12 @@ export class PaysolutionsPaymentProvider implements PaymentProvider {
     monthins?: string;
     successUrl: string;
     cancelUrl: string;
+    postbackUrl?: string;
   }): string {
+    // Get Supabase project URL for webhook
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+    const webhookUrl = params.postbackUrl || `${supabaseUrl}/functions/v1/payment-webhook`;
+    
     const formFields = `
       <input type="hidden" name="customeremail" value="${this.escapeHtml(params.customerEmail)}">
       <input type="hidden" name="productdetail" value="${this.escapeHtml(params.productDetail)}">
@@ -298,6 +309,9 @@ export class PaysolutionsPaymentProvider implements PaymentProvider {
       <input type="hidden" name="cc" value="${this.config.currencyCode}">
       <input type="hidden" name="total" value="${params.totalAmount.toFixed(2)}">
       <input type="hidden" name="lang" value="${this.config.language}">
+      <input type="hidden" name="returnurl" value="${this.escapeHtml(params.successUrl)}">
+      <input type="hidden" name="cancelurl" value="${this.escapeHtml(params.cancelUrl)}">
+      <input type="hidden" name="postbackurl" value="${this.escapeHtml(webhookUrl)}">
       ${params.channel ? `<input type="hidden" name="channel" value="${params.channel}">` : ""}
       ${params.bankins ? `<input type="hidden" name="bankins" value="${params.bankins}">` : ""}
       ${params.monthins ? `<input type="hidden" name="monthins" value="${params.monthins}">` : ""}

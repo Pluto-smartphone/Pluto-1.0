@@ -120,6 +120,10 @@ serve(async (req) => {
 
     // Get origin URL for redirects
     const origin = req.headers.get("origin") || req.headers.get("referer") || "http://localhost:3000";
+    
+    // Get Supabase URL for webhook
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+    const postbackUrl = `${supabaseUrl}/functions/v1/payment-webhook`;
 
     // Create checkout session using payment provider
     const session = await paymentProvider.createCheckoutSession({
@@ -132,6 +136,7 @@ serve(async (req) => {
         user_id: user?.id || "guest",
         payment_method: paymentMethod,
         channel: channel,
+        postbackUrl: postbackUrl,
       },
     });
 
