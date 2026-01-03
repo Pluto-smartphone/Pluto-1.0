@@ -6,8 +6,31 @@ import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { supabase } from '@/integrations/supabase/client'
 import { useToast } from '@/hooks/use-toast'
-import { LogIn, UserPlus } from 'lucide-react'
+import { LogIn, UserPlus, Check, X } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
+
+const validatePassword = (password: string): string | null => {
+  if (password.length < 8) {
+    return 'Password must be at least 8 characters'
+  }
+  if (!/[A-Z]/.test(password)) {
+    return 'Password must contain at least one uppercase letter'
+  }
+  if (!/[a-z]/.test(password)) {
+    return 'Password must contain at least one lowercase letter'
+  }
+  if (!/[0-9]/.test(password)) {
+    return 'Password must contain at least one number'
+  }
+  return null
+}
+
+const getPasswordRequirements = (password: string) => [
+  { label: 'At least 8 characters', met: password.length >= 8 },
+  { label: 'One uppercase letter', met: /[A-Z]/.test(password) },
+  { label: 'One lowercase letter', met: /[a-z]/.test(password) },
+  { label: 'One number', met: /[0-9]/.test(password) },
+]
 
 interface AuthModalProps {
   children: React.ReactNode
@@ -134,11 +157,12 @@ export function AuthModal({ children }: AuthModalProps) {
                 </span>
               </div>
             </div>
-            <AuthForm 
+            <AuthForm
               onSubmit={(email, password) => handleAuth(email, password, true)}
               isLoading={isLoading}
               buttonText="Sign Up"
               icon={<UserPlus className="h-4 w-4" />}
+              isSignUp={true}
             />
           </TabsContent>
         </Tabs>
@@ -198,14 +222,29 @@ interface AuthFormProps {
   isLoading: boolean
   buttonText: string
   icon: React.ReactNode
+  isSignUp?: boolean
 }
 
-function AuthForm({ onSubmit, isLoading, buttonText, icon }: AuthFormProps) {
+function AuthForm({ onSubmit, isLoading, buttonText, icon, isSignUp = false }: AuthFormProps) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [passwordError, setPasswordError] = useState<string | null>(null)
+
+  const requirements = getPasswordRequirements(password)
+  const allRequirementsMet = requirements.every(r => r.met)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+
+    if (isSignUp) {
+      const error = validatePassword(password)
+      if (error) {
+        setPasswordError(error)
+        return
+      }
+    }
+
+    setPasswordError(null)
     onSubmit(email, password)
   }
 
@@ -229,12 +268,38 @@ function AuthForm({ onSubmit, isLoading, buttonText, icon }: AuthFormProps) {
           type="password"
           placeholder="Enter your password"
           value={password}
-          onChange={(e) => setPassword(e.target.value)}
+          onChange={(e) => {
+            setPassword(e.target.value)
+            setPasswordError(null)
+          }}
           required
-          minLength={6}
+          minLength={isSignUp ? 8 : 1}
         />
+        {isSignUp && password.length > 0 && (
+          <div className="mt-2 space-y-1">
+            {requirements.map((req, index) => (
+              <div key={index} className="flex items-center gap-2 text-xs">
+                {req.met ? (
+                  <Check className="h-3 w-3 text-green-500" />
+                ) : (
+                  <X className="h-3 w-3 text-muted-foreground" />
+                )}
+                <span className={req.met ? 'text-green-500' : 'text-muted-foreground'}>
+                  {req.label}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+        {passwordError && (
+          <p className="text-xs text-destructive">{passwordError}</p>
+        )}
       </div>
-      <Button type="submit" className="w-full" disabled={isLoading}>
+      <Button
+        type="submit"
+        className="w-full"
+        disabled={isLoading || (isSignUp && !allRequirementsMet)}
+      >
         {isLoading ? (
           "Loading..."
         ) : (
