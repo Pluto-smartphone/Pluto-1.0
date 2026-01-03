@@ -45,14 +45,10 @@ const Payment: React.FC = () => {
       // Get current session
       const { data: { session } } = await supabase.auth.getSession();
       
-      const subtotal = getCartTotal();
-      const tax = paymentMethod === 'credit-card' ? subtotal * 0.07 : 0;
-      const totalAmount = subtotal + tax;
-
       const { data, error } = await supabase.functions.invoke('create-checkout', {
         body: {
           cartItems: items,
-          totalAmount: totalAmount,
+          paymentMethod: paymentMethod,
         },
         headers: session ? {
           Authorization: `Bearer ${session.access_token}`,

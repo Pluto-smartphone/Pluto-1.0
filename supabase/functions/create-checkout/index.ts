@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
+import { getPaymentProvider } from "../_shared/payment-config.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -18,29 +18,21 @@ serve(async (req) => {
   );
 
   try {
-    const { cartItems } = await req.json();
+    const { cartItems, paymentMethod = 'credit-card' } = await req.json();
     
     if (!cartItems || cartItems.length === 0) {
       throw new Error("Cart is empty");
     }
 
-    // Get authenticated user with proper validation
+    // Get authenticated user (optional - allow guest checkout)
+    let user = null;
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: "Authentication required" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
-    
-    if (authError || !user) {
-      return new Response(
-        JSON.stringify({ error: "Invalid authentication" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    if (authHeader) {
+      const token = authHeader.replace("Bearer ", "");
+      const { data: { user: authUser }, error: authError } = await supabaseClient.auth.getUser(token);
+      if (!authError && authUser) {
+        user = authUser;
+      }
     }
 
     // Validate cart items by fetching real prices from database
@@ -81,47 +73,65 @@ serve(async (req) => {
       }
     }
     
-    // Initialize Stripe
-    const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
-      apiVersion: "2025-08-27.basil",
-    });
+    // Calculate subtotal
+    const subtotal = cartItems.reduce((sum: number, item: any) => {
+      const product = productMap.get(item.id);
+      return sum + (product!.price * item.quantity);
+    }, 0);
 
-    // Check if customer exists
-    let customerId;
-    if (user?.email) {
-      const customers = await stripe.customers.list({ email: user.email, limit: 1 });
-      if (customers.data.length > 0) {
-        customerId = customers.data[0].id;
-      }
+    // Calculate tax only for credit card payment
+    const tax = paymentMethod === 'credit-card' ? subtotal * 0.07 : 0;
+    const totalAmount = subtotal + tax;
+
+    // Get payment provider (Paysolutions)
+    const paymentProvider = getPaymentProvider();
+
+    // Map payment method to Paysolutions channel
+    let channel = "full"; // Default: show all payment options
+    if (paymentMethod === 'promptpay') {
+      channel = "promptpay";
+    } else if (paymentMethod === 'credit-card') {
+      channel = "full"; // Credit card is available in full channel
+    } else if (paymentMethod === 'bank-transfer') {
+      channel = "ibanking";
     }
 
-    // Create line items using validated database prices
+    // Create line items for Paysolutions (amount in satang)
     const lineItems = cartItems.map((item: any) => {
       const product = productMap.get(item.id);
       return {
-        price_data: {
-          currency: "thb",
-          product_data: {
-            name: product!.name,
-            description: `${product!.brand} - ${product!.condition}`,
-            images: product!.image_url ? [product!.image_url] : [],
-          },
-          unit_amount: Math.round(product!.price * 100), // Use database price, not client price
-        },
+        name: product!.name,
+        description: `${product!.brand} - ${product!.condition}`,
+        amount: Math.round(product!.price * 100), // Convert to satang
         quantity: item.quantity,
+        imageUrl: product!.image_url,
       };
     });
 
-    // Create checkout session
-    const session = await stripe.checkout.sessions.create({
-      customer: customerId,
-      customer_email: customerId ? undefined : user?.email,
-      line_items: lineItems,
-      mode: "payment",
-      success_url: `${req.headers.get("origin")}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${req.headers.get("origin")}/payment`,
+    // Add tax line item if payment method is credit card
+    if (paymentMethod === 'credit-card' && tax > 0) {
+      lineItems.push({
+        name: "Tax (VAT 7%)",
+        description: "Value Added Tax",
+        amount: Math.round(tax * 100), // Convert to satang
+        quantity: 1,
+      });
+    }
+
+    // Get origin URL for redirects
+    const origin = req.headers.get("origin") || req.headers.get("referer") || "http://localhost:3000";
+
+    // Create checkout session using payment provider
+    const session = await paymentProvider.createCheckoutSession({
+      lineItems: lineItems,
+      customerEmail: user?.email,
+      userId: user?.id || "guest",
+      successUrl: `${origin}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+      cancelUrl: `${origin}/payment`,
       metadata: {
         user_id: user?.id || "guest",
+        payment_method: paymentMethod,
+        channel: channel,
       },
     });
 
@@ -131,11 +141,17 @@ serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error creating checkout:", error);
-    return new Response(JSON.stringify({ error: "Payment processing failed" }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 500,
-    });
+    const errorMessage = error?.message || "Payment processing failed";
+    return new Response(
+      JSON.stringify({ 
+        error: errorMessage
+      }), 
+      {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 500,
+      }
+    );
   }
 });
