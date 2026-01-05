@@ -112,7 +112,7 @@ const Footer: React.FC = () => {
               </div>
               <div className="flex items-center space-x-3">
                 <Mail className="h-4 w-4 text-primary" />
-                <span className="text-muted-foreground text-sm">hello@pluto.com</span>
+                <span className="text-muted-foreground text-sm">pluto.th.business@gmail.com</span>
               </div>
               <div className="flex items-center space-x-3">
                 <MapPin className="h-4 w-4 text-primary" />
@@ -130,7 +130,7 @@ const Footer: React.FC = () => {
         {/* Bottom Bar */}
         <div className="mt-12 pt-8 border-t border-border flex justify-center">
           <p className="text-muted-foreground text-sm">
-            © 2024 Pluto. {t('language') === 'th' ? 'สงวนลิขสิทธิ์' : 'All rights reserved.'}
+            © 2025 Pluto. {t('language') === 'th' ? 'สงวนลิขสิทธิ์' : 'All rights reserved.'}
           </p>
         </div>
       </div>
