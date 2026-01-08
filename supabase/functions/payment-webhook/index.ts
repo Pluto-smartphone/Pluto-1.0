@@ -17,7 +17,7 @@ serve(async (req) => {
   );
 
   try {
-    // Paysolutions sends POST data as form data or JSON
+    // GB Prime Pay sends POST data as form data or JSON
     let paymentData: any = {};
     
     const contentType = req.headers.get("content-type") || "";
