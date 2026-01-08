@@ -2,24 +2,24 @@
 // Change this to switch between different payment providers
 
 import { PaymentProvider } from "./payment-provider.ts";
-import { PaysolutionsPaymentProvider } from "./paysolutions-provider.ts";
-// Import other providers here when implemented:
-// import { OmisePaymentProvider } from "./omise-provider.ts";
-// import { PayPalPaymentProvider } from "./paypal-provider.ts";
-// import { TwoC2PPaymentProvider } from "./2c2p-provider.ts";
+import { GBPrimePayProvider } from "./gbprimepay-provider.ts";
+// Legacy provider (kept for reference)
+// import { PaysolutionsPaymentProvider } from "./paysolutions-provider.ts";
 
-export type PaymentProviderType = "paysolutions" | "omise" | "paypal" | "2c2p";
+export type PaymentProviderType = "gbprimepay" | "paysolutions" | "omise" | "paypal" | "2c2p";
 
 export function getPaymentProvider(): PaymentProvider {
-  // Get provider type from environment variable (default: paysolutions)
-  const providerType = (Deno.env.get("PAYMENT_PROVIDER") || "paysolutions") as PaymentProviderType;
-  const apiKey = Deno.env.get("PAYMENT_API_KEY") || Deno.env.get("PAYSOLUTIONS_BEARER_TOKEN") || "";
+  // Get provider type from environment variable (default: gbprimepay)
+  const providerType = (Deno.env.get("PAYMENT_PROVIDER") || "gbprimepay") as PaymentProviderType;
+  const apiKey = Deno.env.get("PAYMENT_API_KEY") || Deno.env.get("GBPRIMEPAY_SECRET_KEY") || "";
 
   switch (providerType) {
-    case "paysolutions":
-      return new PaysolutionsPaymentProvider(apiKey);
+    case "gbprimepay":
+      return new GBPrimePayProvider(apiKey);
     
-    // Add other providers here:
+    // Legacy providers (kept for reference)
+    // case "paysolutions":
+    //   return new PaysolutionsPaymentProvider(apiKey);
     // case "omise":
     //   return new OmisePaymentProvider(apiKey);
     // case "paypal":
@@ -28,8 +28,8 @@ export function getPaymentProvider(): PaymentProvider {
     //   return new TwoC2PPaymentProvider(apiKey);
     
     default:
-      console.warn(`Unknown payment provider: ${providerType}, defaulting to Paysolutions`);
-      return new PaysolutionsPaymentProvider(apiKey);
+      console.warn(`Unknown payment provider: ${providerType}, defaulting to GB Prime Pay`);
+      return new GBPrimePayProvider(apiKey);
   }
 }
 

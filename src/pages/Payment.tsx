@@ -27,7 +27,7 @@ const Payment: React.FC = () => {
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentComplete, setPaymentComplete] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState('credit-card');
+  const [paymentMethod, setPaymentMethod] = useState('promptpay'); // Default to PromptPay
 
   const formatPrice = (price: number) =>
     new Intl.NumberFormat('th-TH', {
@@ -182,9 +182,6 @@ const Payment: React.FC = () => {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="credit-card">
-                        {language === 'th' ? 'บัตรเครดิต' : 'Credit Card'}
-                      </SelectItem>
                       <SelectItem value="promptpay">
                         {language === 'th' ? 'พร้อมเพย์' : 'PromptPay'}
                       </SelectItem>
@@ -192,6 +189,9 @@ const Payment: React.FC = () => {
                         {language === 'th'
                           ? 'โอนเงินผ่านธนาคาร'
                           : 'Bank Transfer'}
+                      </SelectItem>
+                      <SelectItem value="credit-card">
+                        {language === 'th' ? 'บัตรเครดิต' : 'Credit Card'}
                       </SelectItem>
                     </SelectContent>
                   </Select>

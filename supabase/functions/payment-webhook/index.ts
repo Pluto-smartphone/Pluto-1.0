@@ -45,13 +45,14 @@ serve(async (req) => {
 
     console.log("Payment webhook received:", paymentData);
 
-    // Extract payment information from Paysolutions callback
-    // Common fields: refno, status, amount, transaction_id, etc.
-    const referenceNo = paymentData.refno || paymentData.referenceNo || paymentData.ref_no;
-    const status = paymentData.status || paymentData.payment_status;
+    // Extract payment information from GB Prime Pay callback
+    // GB Prime Pay fields: referenceNo, resultCode, amount, gbpReferenceNo, etc.
+    const referenceNo = paymentData.referenceNo || paymentData.refno || paymentData.reference_no;
+    const resultCode = paymentData.resultCode;
+    const status = paymentData.status || (resultCode === "00" ? "success" : "failed");
     const amount = paymentData.amount || paymentData.total;
-    const transactionId = paymentData.transaction_id || paymentData.txn_id;
-    const paymentMethod = paymentData.payment_method || paymentData.channel;
+    const transactionId = paymentData.gbpReferenceNo || paymentData.transaction_id || paymentData.txn_id;
+    const paymentMethod = paymentData.paymentType || paymentData.payment_method || paymentData.channel;
 
     if (!referenceNo) {
       console.error("Missing reference number in webhook data");
@@ -81,7 +82,7 @@ serve(async (req) => {
     //     .eq('reference_no', referenceNo);
     // }
 
-    // Return success response to Paysolutions
+    // Return success response to GB Prime Pay
     return new Response(JSON.stringify({ 
       success: true,
       message: "Webhook received successfully"
@@ -102,4 +103,10 @@ serve(async (req) => {
     );
   }
 });
+
+
+
+
+
+
 

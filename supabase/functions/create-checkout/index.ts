@@ -83,20 +83,10 @@ serve(async (req) => {
     const tax = paymentMethod === 'credit-card' ? subtotal * 0.07 : 0;
     const totalAmount = subtotal + tax;
 
-    // Get payment provider (Paysolutions)
+    // Get payment provider (GB Prime Pay)
     const paymentProvider = getPaymentProvider();
 
-    // Map payment method to Paysolutions channel
-    let channel = "full"; // Default: show all payment options
-    if (paymentMethod === 'promptpay') {
-      channel = "promptpay";
-    } else if (paymentMethod === 'credit-card') {
-      channel = "full"; // Credit card is available in full channel
-    } else if (paymentMethod === 'bank-transfer') {
-      channel = "ibanking";
-    }
-
-    // Create line items for Paysolutions (amount in satang)
+    // Create line items for GB Prime Pay (amount in satang)
     const lineItems = cartItems.map((item: any) => {
       const product = productMap.get(item.id);
       return {
@@ -135,8 +125,8 @@ serve(async (req) => {
       metadata: {
         user_id: user?.id || "guest",
         payment_method: paymentMethod,
-        channel: channel,
         postbackUrl: postbackUrl,
+        customerName: user?.user_metadata?.full_name || "Customer",
       },
     });
 
