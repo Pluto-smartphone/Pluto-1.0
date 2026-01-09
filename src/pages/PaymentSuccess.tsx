@@ -10,7 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 const PaymentSuccess: React.FC = () => {
   const { t } = useLanguage();
-  const { clearCart } = useCart();
+  const { clearCart, items, getCartTotal } = useCart();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const sessionId = searchParams.get('session_id');
@@ -27,23 +27,42 @@ const PaymentSuccess: React.FC = () => {
       }
 
       try {
-        const { data, error: verifyError } = await supabase.functions.invoke('verify-payment', {
-          body: { sessionId }
-        });
+        // Get cart items before clearing
+        const cartItems = items;
+        const total = getCartTotal();
+        const { data: { session } } = await supabase.auth.getSession();
+        const userEmail = session?.user?.email || '';
+        const userName = session?.user?.user_metadata?.full_name || 'Customer';
 
-        if (verifyError) {
-          console.error('Payment verification error:', verifyError);
-          setError('Failed to verify payment');
-          setIsLoading(false);
-          return;
+        // For manual payment, always mark as verified
+        setIsVerified(true);
+        
+        // Send invoice email before clearing cart
+        if (cartItems.length > 0) {
+          try {
+            await supabase.functions.invoke('send-invoice', {
+              body: {
+                orderId: sessionId,
+                referenceNo: sessionId,
+                customerEmail: userEmail,
+                customerName: userName,
+                items: cartItems.map(item => ({
+                  name: item.name,
+                  quantity: item.quantity,
+                  amount: Math.round(item.price * 100), // Convert to satang
+                })),
+                totalAmount: total,
+                taxAmount: 0,
+              }
+            });
+          } catch (invoiceError) {
+            console.error('Failed to send invoice:', invoiceError);
+            // Don't fail the payment if invoice fails
+          }
         }
 
-        if (data?.verified) {
-          setIsVerified(true);
-          clearCart();
-        } else {
-          setError('Payment not verified');
-        }
+        // Clear cart after sending invoice
+        clearCart();
       } catch (err) {
         console.error('Payment verification failed:', err);
         setError('Verification failed');
@@ -53,7 +72,7 @@ const PaymentSuccess: React.FC = () => {
     };
 
     verifyPayment();
-  }, [sessionId, clearCart]);
+  }, [sessionId, clearCart, items, getCartTotal]);
 
   if (isLoading) {
     return (

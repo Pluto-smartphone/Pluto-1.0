@@ -321,6 +321,18 @@ export const sampleProducts: Product[] = [
     storage: '128GB',
     color: 'Dark Matter',
     description: 'Curved display with good performance and attractive design.'
+  },
+  // Test Product
+  {
+    id: 'test-1',
+    name: 'สินค้าทดสอบระบบชำระเงิน',
+    price: 1,
+    image: 'https://images.unsplash.com/photo-1601784551446-20c9e07cdbdb?w=400&h=300&fit=crop',
+    brand: 'Test',
+    condition: 'new',
+    storage: 'N/A',
+    color: 'Test',
+    description: 'สินค้าจำลองสำหรับทดสอบระบบชำระเงิน ราคา 1 บาท'
   }
 ];
 

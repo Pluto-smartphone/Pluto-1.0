@@ -27,7 +27,7 @@ const Payment: React.FC = () => {
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentComplete, setPaymentComplete] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState('promptpay'); // Default to PromptPay
+  const [paymentMethod, setPaymentMethod] = useState('promptpay'); // Only PromptPay and Bank Transfer
 
   const formatPrice = (price: number) =>
     new Intl.NumberFormat('th-TH', {
@@ -190,45 +190,10 @@ const Payment: React.FC = () => {
                           ? 'โอนเงินผ่านธนาคาร'
                           : 'Bank Transfer'}
                       </SelectItem>
-                      <SelectItem value="credit-card">
-                        {language === 'th' ? 'บัตรเครดิต' : 'Credit Card'}
-                      </SelectItem>
                     </SelectContent>
                   </Select>
 
                   {/* Credit Card Fields */}
-                  {paymentMethod === 'credit-card' && (
-                    <>
-                      <div>
-                        <Label>
-                          {language === 'th' ? 'หมายเลขบัตร' : 'Card Number'}
-                        </Label>
-                        <Input placeholder="1234 5678 9012 3456" />
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label>
-                            {language === 'th' ? 'วันหมดอายุ' : 'Expiry'}
-                          </Label>
-                          <Input placeholder="MM/YY" />
-                        </div>
-                        <div>
-                          <Label>CVV</Label>
-                          <Input placeholder="123" />
-                        </div>
-                      </div>
-
-                      <div>
-                        <Label>
-                          {language === 'th'
-                            ? 'ชื่อบนบัตร'
-                            : 'Name on Card'}
-                        </Label>
-                        <Input />
-                      </div>
-                    </>
-                  )}
                 </CardContent>
               </Card>
             </div>
@@ -256,13 +221,7 @@ const Payment: React.FC = () => {
 
                 <div className="flex justify-between font-bold">
                   <span>{t('total')}</span>
-                  <span>
-                    {formatPrice(
-                      paymentMethod === 'credit-card'
-                        ? getCartTotal() * 1.07
-                        : getCartTotal()
-                    )}
-                  </span>
+                  <span>{formatPrice(getCartTotal())}</span>
                 </div>
 
                 <Button

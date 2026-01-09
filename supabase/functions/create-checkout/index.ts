@@ -73,20 +73,16 @@ serve(async (req) => {
       }
     }
     
-    // Calculate subtotal
-    const subtotal = cartItems.reduce((sum: number, item: any) => {
+    // Calculate total amount (no tax for manual payment)
+    const totalAmount = cartItems.reduce((sum: number, item: any) => {
       const product = productMap.get(item.id);
       return sum + (product!.price * item.quantity);
     }, 0);
 
-    // Calculate tax only for credit card payment
-    const tax = paymentMethod === 'credit-card' ? subtotal * 0.07 : 0;
-    const totalAmount = subtotal + tax;
-
-    // Get payment provider (GB Prime Pay)
+    // Get payment provider (Simple Payment - Manual)
     const paymentProvider = getPaymentProvider();
 
-    // Create line items for GB Prime Pay (amount in satang)
+    // Create line items (amount in satang)
     const lineItems = cartItems.map((item: any) => {
       const product = productMap.get(item.id);
       return {
@@ -97,16 +93,6 @@ serve(async (req) => {
         imageUrl: product!.image_url,
       };
     });
-
-    // Add tax line item if payment method is credit card
-    if (paymentMethod === 'credit-card' && tax > 0) {
-      lineItems.push({
-        name: "Tax (VAT 7%)",
-        description: "Value Added Tax",
-        amount: Math.round(tax * 100), // Convert to satang
-        quantity: 1,
-      });
-    }
 
     // Get origin URL for redirects
     const origin = req.headers.get("origin") || req.headers.get("referer") || "http://localhost:3000";
