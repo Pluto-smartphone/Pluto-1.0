@@ -71,9 +71,15 @@ export class SimplePaymentProvider implements PaymentProvider {
       successUrl: params.successUrl.replace("{CHECKOUT_SESSION_ID}", referenceNo),
     });
     
+    // Encode HTML to base64 (Deno compatible)
+    // Use Deno's built-in base64 encoding
+    const encoder = new TextEncoder();
+    const data = encoder.encode(html);
+    const base64Html = btoa(String.fromCharCode(...data));
+    
     return {
       id: referenceNo,
-      url: `data:text/html;base64,${btoa(html)}`,
+      url: `data:text/html;base64,${base64Html}`,
     };
   }
 

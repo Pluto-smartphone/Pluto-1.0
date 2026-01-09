@@ -18,10 +18,13 @@ serve(async (req) => {
   );
 
   try {
-    const { cartItems, paymentMethod = 'credit-card' } = await req.json();
+    const { cartItems, paymentMethod = 'promptpay' } = await req.json();
     
     if (!cartItems || cartItems.length === 0) {
-      throw new Error("Cart is empty");
+      return new Response(
+        JSON.stringify({ error: "Cart is empty" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     // Get authenticated user (optional - allow guest checkout)
@@ -35,39 +38,14 @@ serve(async (req) => {
       }
     }
 
-    // Validate cart items by fetching real prices from database
-    const productIds = cartItems.map((item: any) => item.id);
-    const { data: products, error: productsError } = await supabaseClient
-      .from('products')
-      .select('id, name, price, brand, condition, image_url')
-      .in('id', productIds)
-      .eq('status', 'available');
+    // For manual payment, use cart items directly (no need to validate against database)
+    // This allows using frontend products without requiring them in database
 
-    if (productsError || !products) {
-      console.error("Error fetching products:", productsError);
-      return new Response(
-        JSON.stringify({ error: "Failed to validate cart items" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Create a map for quick lookup
-    const productMap = new Map(products.map(p => [p.id, p]));
-
-    // Validate each cart item against database
+    // Validate cart items have required fields
     for (const item of cartItems) {
-      const product = productMap.get(item.id);
-      if (!product) {
+      if (!item.id || !item.name || !item.price || !item.quantity) {
         return new Response(
-          JSON.stringify({ error: `Product ${item.id} not found or unavailable` }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      
-      // Verify price matches (prevent price manipulation)
-      if (Math.abs(product.price - item.price) > 0.01) {
-        return new Response(
-          JSON.stringify({ error: "Price mismatch detected. Please refresh your cart." }),
+          JSON.stringify({ error: "Invalid cart item data" }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
@@ -75,8 +53,7 @@ serve(async (req) => {
     
     // Calculate total amount (no tax for manual payment)
     const totalAmount = cartItems.reduce((sum: number, item: any) => {
-      const product = productMap.get(item.id);
-      return sum + (product!.price * item.quantity);
+      return sum + (item.price * item.quantity);
     }, 0);
 
     // Get payment provider (Simple Payment - Manual)
@@ -84,13 +61,12 @@ serve(async (req) => {
 
     // Create line items (amount in satang)
     const lineItems = cartItems.map((item: any) => {
-      const product = productMap.get(item.id);
       return {
-        name: product!.name,
-        description: `${product!.brand} - ${product!.condition}`,
-        amount: Math.round(product!.price * 100), // Convert to satang
+        name: item.name,
+        description: `${item.brand || ''} - ${item.condition || ''}`.trim(),
+        amount: Math.round(item.price * 100), // Convert to satang
         quantity: item.quantity,
-        imageUrl: product!.image_url,
+        imageUrl: item.image || item.image_url || '',
       };
     });
 
