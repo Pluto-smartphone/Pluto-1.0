@@ -29,6 +29,7 @@ const Payment: React.FC = () => {
   const [paymentComplete, setPaymentComplete] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('promptpay'); // Only PromptPay and Bank Transfer
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [paymentPageUrl, setPaymentPageUrl] = useState<string | null>(null);
 
   // Shipping form state
   const [firstName, setFirstName] = useState('');
@@ -158,7 +159,7 @@ const Payment: React.FC = () => {
         throw new Error(serverMsg || error.message);
       }
       if (data?.sessionId) setSessionId(data.sessionId);
-      if (data?.url) window.open(data.url, '_blank');
+      if (data?.url) setPaymentPageUrl(data.url);
     } catch (err: any) {
       toast({
         title: language === 'th' ? 'เกิดข้อผิดพลาด' : 'Error',
@@ -356,6 +357,30 @@ const Payment: React.FC = () => {
                     </Button>
                     <div className="text-xs text-muted-foreground">
                       {language === 'th' ? 'หมายเหตุ: ระบบจะบันทึกสลิปตามหมายเลขอ้างอิงคำสั่งซื้อของคุณ' : 'Note: Receipt will be saved under your order reference.'}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Inline Payment Page (QR/Bank details) */}
+              {paymentPageUrl && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>
+                      {language === 'th' ? 'สแกน QR / ข้อมูลบัญชี' : 'Scan QR / Bank Details'}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <iframe
+                      src={paymentPageUrl}
+                      title="Payment"
+                      className="w-full rounded-md border"
+                      style={{ height: 700 }}
+                    />
+                    <div className="text-xs text-muted-foreground mt-2">
+                      {language === 'th'
+                        ? 'หากไม่แสดง กรุณาเลื่อนลงมา หรือเปิดด้วยเบราว์เซอร์ตัวเต็ม'
+                        : 'If it does not display, scroll down or open in a full browser.'}
                     </div>
                   </CardContent>
                 </Card>
