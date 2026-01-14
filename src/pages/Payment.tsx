@@ -28,12 +28,85 @@ const Payment: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentComplete, setPaymentComplete] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('promptpay'); // Only PromptPay and Bank Transfer
+  const [sessionId, setSessionId] = useState<string | null>(null);
+
+  // Shipping form state
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [houseNo, setHouseNo] = useState('');
+  const [building, setBuilding] = useState('');
+  const [moo, setMoo] = useState('');
+  const [soi, setSoi] = useState('');
+  const [road, setRoad] = useState('');
+  const [subdistrict, setSubdistrict] = useState('');
+  const [district, setDistrict] = useState('');
+  const [province, setProvince] = useState('');
+  const [postalCode, setPostalCode] = useState('');
+
+  // Receipt upload state
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   const formatPrice = (price: number) =>
     new Intl.NumberFormat('th-TH', {
       style: 'currency',
       currency: 'THB',
     }).format(price);
+
+  const isDisposableDomain = (domain: string) => {
+    const list = ['mailinator.com','tempmail.com','10minutemail.com','guerrillamail.com','yopmail.com'];
+    return list.includes(domain.toLowerCase());
+  };
+
+  const validateForm = () => {
+    // Basic checks for fake info
+    if (!firstName || !lastName) {
+      toast({
+        title: language === 'th' ? 'กรอกชื่อให้ครบถ้วน' : 'Please enter full name',
+        variant: 'destructive',
+      });
+      return false;
+    }
+    const emailMatch = email.match(/^[^\s@]+@([^\s@]+)$/);
+    if (!emailMatch) {
+      toast({ title: language === 'th' ? 'อีเมลไม่ถูกต้อง' : 'Invalid email', variant: 'destructive' });
+      return false;
+    }
+    const domain = emailMatch[1];
+    if (isDisposableDomain(domain)) {
+      toast({ title: language === 'th' ? 'ไม่รับอีเมลชั่วคราว' : 'Disposable email not allowed', variant: 'destructive' });
+      return false;
+    }
+    if (!/^0\d{8,9}$/.test(phone.replace(/[^0-9]/g, ''))) {
+      toast({ title: language === 'th' ? 'เบอร์โทรศัพท์ไม่ถูกต้อง' : 'Invalid Thai phone number', variant: 'destructive' });
+      return false;
+    }
+    if (!houseNo || !subdistrict || !district || !province || !/^\d{5}$/.test(postalCode)) {
+      toast({ title: language === 'th' ? 'กรอกที่อยู่ให้ครบถ้วน' : 'Please complete the address', variant: 'destructive' });
+      return false;
+    }
+    return true;
+  };
+
+  const uploadReceipt = async () => {
+    if (!sessionId || !receiptFile) return;
+    try {
+      setUploading(true);
+      const path = `receipts/${sessionId}/${Date.now()}_${receiptFile.name}`;
+      const { error } = await supabase.storage.from('payment-slips').upload(path, receiptFile, {
+        cacheControl: '3600',
+        upsert: false,
+      });
+      if (error) throw error;
+      toast({ title: language === 'th' ? 'อัปโหลดสลิปสำเร็จ' : 'Receipt uploaded', variant: 'default' });
+    } catch (err: any) {
+      toast({ title: language === 'th' ? 'อัปโหลดสลิปล้มเหลว' : 'Upload failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const handlePayment = async () => {
     if (items.length === 0) {
@@ -48,6 +121,8 @@ const Payment: React.FC = () => {
       return;
     }
 
+    if (!validateForm()) return;
+
     setIsProcessing(true);
 
     try {
@@ -57,6 +132,21 @@ const Payment: React.FC = () => {
         body: {
           cartItems: items,
           paymentMethod,
+          shipping: {
+            firstName,
+            lastName,
+            email,
+            phone,
+            houseNo,
+            building,
+            moo,
+            soi,
+            road,
+            subdistrict,
+            district,
+            province,
+            postalCode,
+          },
         },
         headers: session
           ? { Authorization: `Bearer ${session.access_token}` }
@@ -64,6 +154,7 @@ const Payment: React.FC = () => {
       });
 
       if (error) throw error;
+      if (data?.sessionId) setSessionId(data.sessionId);
       if (data?.url) window.open(data.url, '_blank');
     } catch (err: any) {
       toast({
@@ -133,35 +224,78 @@ const Payment: React.FC = () => {
                   <CardTitle className="flex items-center gap-2">
                     <Home className="h-5 w-5" />
                     {language === 'th'
-                      ? 'ข้อมูลการเรียกเก็บเงิน'
-                      : 'Billing Information'}
+                      ? 'ข้อมูลการจัดส่ง'
+                      : 'Shipping Information'}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label>{language === 'th' ? 'ชื่อ' : 'First Name'}</Label>
-                      <Input />
+                      <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} />
                     </div>
                     <div>
                       <Label>{language === 'th' ? 'นามสกุล' : 'Last Name'}</Label>
-                      <Input />
+                      <Input value={lastName} onChange={(e) => setLastName(e.target.value)} />
                     </div>
                   </div>
 
                   <div>
                     <Label>Email</Label>
-                    <Input type="email" />
+                    <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
                   </div>
 
                   <div>
                     <Label>{language === 'th' ? 'เบอร์โทรศัพท์' : 'Phone'}</Label>
-                    <Input />
+                    <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
                   </div>
 
-                  <div>
-                    <Label>{language === 'th' ? 'ที่อยู่' : 'Address'}</Label>
-                    <Input />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label>{language === 'th' ? 'บ้านเลขที่' : 'House No.'}</Label>
+                      <Input value={houseNo} onChange={(e) => setHouseNo(e.target.value)} />
+                    </div>
+                    <div>
+                      <Label>{language === 'th' ? 'อาคาร/หมู่บ้าน' : 'Building/Village'}</Label>
+                      <Input value={building} onChange={(e) => setBuilding(e.target.value)} />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <Label>{language === 'th' ? 'หมู่' : 'Moo'}</Label>
+                      <Input value={moo} onChange={(e) => setMoo(e.target.value)} />
+                    </div>
+                    <div>
+                      <Label>{language === 'th' ? 'ซอย' : 'Soi'}</Label>
+                      <Input value={soi} onChange={(e) => setSoi(e.target.value)} />
+                    </div>
+                    <div>
+                      <Label>{language === 'th' ? 'ถนน' : 'Road'}</Label>
+                      <Input value={road} onChange={(e) => setRoad(e.target.value)} />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label>{language === 'th' ? 'ตำบล/แขวง' : 'Subdistrict'}</Label>
+                      <Input value={subdistrict} onChange={(e) => setSubdistrict(e.target.value)} />
+                    </div>
+                    <div>
+                      <Label>{language === 'th' ? 'อำเภอ/เขต' : 'District'}</Label>
+                      <Input value={district} onChange={(e) => setDistrict(e.target.value)} />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label>{language === 'th' ? 'จังหวัด' : 'Province'}</Label>
+                      <Input value={province} onChange={(e) => setProvince(e.target.value)} />
+                    </div>
+                    <div>
+                      <Label>{language === 'th' ? 'รหัสไปรษณีย์' : 'Postal Code'}</Label>
+                      <Input value={postalCode} onChange={(e) => setPostalCode(e.target.value)} />
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -193,9 +327,36 @@ const Payment: React.FC = () => {
                     </SelectContent>
                   </Select>
 
-                  {/* Credit Card Fields */}
+                  {/* Bank information note */}
+                  {paymentMethod === 'bank-transfer' && (
+                    <div className="text-sm text-muted-foreground">
+                      {language === 'th'
+                        ? 'โอนเงินไปยังบัญชีที่จะแสดงในหน้าชำระเงิน และแนบสลิปหลังโอน'
+                        : 'Transfer to the bank account shown on the payment page and upload the receipt.'}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
+
+              {/* Receipt Upload */}
+              {sessionId && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>
+                      {language === 'th' ? 'แนบสลิปการโอนเงิน' : 'Upload Transfer Receipt'}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <Input type="file" accept="image/*,application/pdf" onChange={(e) => setReceiptFile(e.target.files?.[0] || null)} />
+                    <Button disabled={!receiptFile || uploading} onClick={uploadReceipt}>
+                      {uploading ? (language === 'th' ? 'กำลังอัปโหลด...' : 'Uploading...') : (language === 'th' ? 'อัปโหลดสลิป' : 'Upload Receipt')}
+                    </Button>
+                    <div className="text-xs text-muted-foreground">
+                      {language === 'th' ? 'หมายเหตุ: ระบบจะบันทึกสลิปตามหมายเลขอ้างอิงคำสั่งซื้อของคุณ' : 'Note: Receipt will be saved under your order reference.'}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </div>
 
             {/* RIGHT */}
