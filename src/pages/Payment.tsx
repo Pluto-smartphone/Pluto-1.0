@@ -153,7 +153,10 @@ const Payment: React.FC = () => {
           : undefined,
       });
 
-      if (error) throw error;
+      if (error) {
+        const serverMsg = (data as any)?.error;
+        throw new Error(serverMsg || error.message);
+      }
       if (data?.sessionId) setSessionId(data.sessionId);
       if (data?.url) window.open(data.url, '_blank');
     } catch (err: any) {
