@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Home, HandCoins, ArrowLeft, CheckCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -13,7 +13,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { thaiAddress } from '@/data/thaiAddress';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { useCart } from '@/contexts/CartContext';
@@ -47,10 +46,17 @@ const Payment: React.FC = () => {
   const [district, setDistrict] = useState('');
   const [province, setProvince] = useState('');
   const [postalCode, setPostalCode] = useState('');
-  // Cascading address selection indices
-  const [provinceIdx, setProvinceIdx] = useState<number | null>(null);
-  const [districtIdx, setDistrictIdx] = useState<number | null>(null);
-  const [subdistrictIdx, setSubdistrictIdx] = useState<number | null>(null);
+  // API-based address datasets and selections
+  type ProvinceAPI = { id: number; name_th: string; name_en: string };
+  type AmphureAPI = { id: number; province_id: number; name_th: string; name_en: string };
+  type TambonAPI = { id: number; amphure_id: number; name_th: string; name_en: string; zip_code: string };
+
+  const [provinces, setProvinces] = useState<ProvinceAPI[]>([]);
+  const [amphures, setAmphures] = useState<AmphureAPI[]>([]);
+  const [tambons, setTambons] = useState<TambonAPI[]>([]);
+  const [selectedProvinceId, setSelectedProvinceId] = useState<number | null>(null);
+  const [selectedAmphureId, setSelectedAmphureId] = useState<number | null>(null);
+  const [selectedTambonId, setSelectedTambonId] = useState<number | null>(null);
 
   // Receipt upload state
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
@@ -62,10 +68,31 @@ const Payment: React.FC = () => {
       currency: 'THB',
     }).format(price);
 
-  // Derived lists for cascading dropdowns
-  const districts = provinceIdx !== null ? thaiAddress[provinceIdx].districts : [];
-  const subdistricts = provinceIdx !== null && districtIdx !== null
-    ? thaiAddress[provinceIdx].districts[districtIdx].subdistricts
+  // Fetch Thai administrative divisions from public API
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [pRes, aRes, tRes] = await Promise.all([
+          fetch('https://raw.githubusercontent.com/kongvut/thai-province-data/master/api_province.json'),
+          fetch('https://raw.githubusercontent.com/kongvut/thai-province-data/master/api_amphure.json'),
+          fetch('https://raw.githubusercontent.com/kongvut/thai-province-data/master/api_tambon.json'),
+        ]);
+        const [pJson, aJson, tJson] = await Promise.all([pRes.json(), aRes.json(), tRes.json()]);
+        setProvinces(pJson);
+        setAmphures(aJson);
+        setTambons(tJson);
+      } catch (e) {
+        console.error('Failed to fetch Thai address data', e);
+      }
+    };
+    fetchData();
+  }, []);
+
+  const filteredAmphures = selectedProvinceId
+    ? amphures.filter((a) => a.province_id === selectedProvinceId)
+    : [];
+  const filteredTambons = selectedAmphureId
+    ? tambons.filter((t) => t.amphure_id === selectedAmphureId)
     : [];
 
   const isDisposableDomain = (domain: string) => {
@@ -317,26 +344,26 @@ const Payment: React.FC = () => {
                     <div>
                       <Label>{language === 'th' ? 'อำเภอ/เขต' : 'District'}</Label>
                       <Select
-                        value={districtIdx !== null ? String(districtIdx) : ''}
+                        value={selectedAmphureId ? String(selectedAmphureId) : ''}
                         onValueChange={(val) => {
-                          const idx = val === '' ? null : parseInt(val, 10);
-                          setDistrictIdx(idx);
-                          const name = idx !== null ? districts[idx].nameTh : '';
-                          setDistrict(name);
-                          // Reset subdistrict when district changes
-                          setSubdistrictIdx(null);
+                          const id = val === '' ? null : parseInt(val, 10);
+                          setSelectedAmphureId(id);
+                          const a = filteredAmphures.find((x) => x.id === id);
+                          setDistrict(a ? a.name_th : '');
+                          // Reset tambon when amphure changes
+                          setSelectedTambonId(null);
                           setSubdistrict('');
                           setPostalCode('');
                         }}
-                        disabled={provinceIdx === null}
+                        disabled={!selectedProvinceId}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder={language === 'th' ? 'เลือกอำเภอ/เขต' : 'Select District'} />
                         </SelectTrigger>
                         <SelectContent>
-                          {districts.map((d, idx) => (
-                            <SelectItem key={d.nameTh + idx} value={String(idx)}>
-                              {d.nameTh}
+                          {filteredAmphures.map((d) => (
+                            <SelectItem key={d.id} value={String(d.id)}>
+                              {d.name_th}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -345,24 +372,23 @@ const Payment: React.FC = () => {
                     <div>
                       <Label>{language === 'th' ? 'ตำบล/แขวง' : 'Subdistrict'}</Label>
                       <Select
-                        value={subdistrictIdx !== null ? String(subdistrictIdx) : ''}
+                        value={selectedTambonId ? String(selectedTambonId) : ''}
                         onValueChange={(val) => {
-                          const idx = val === '' ? null : parseInt(val, 10);
-                          setSubdistrictIdx(idx);
-                          const name = idx !== null ? subdistricts[idx].nameTh : '';
-                          setSubdistrict(name);
-                          const code = idx !== null ? subdistricts[idx].postalCode : '';
-                          setPostalCode(code);
+                          const id = val === '' ? null : parseInt(val, 10);
+                          setSelectedTambonId(id);
+                          const t = filteredTambons.find((x) => x.id === id);
+                          setSubdistrict(t ? t.name_th : '');
+                          setPostalCode(t ? t.zip_code : '');
                         }}
-                        disabled={districtIdx === null}
+                        disabled={!selectedAmphureId}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder={language === 'th' ? 'เลือกตำบล/แขวง' : 'Select Subdistrict'} />
                         </SelectTrigger>
                         <SelectContent>
-                          {subdistricts.map((s, idx) => (
-                            <SelectItem key={s.nameTh + idx} value={String(idx)}>
-                              {s.nameTh}
+                          {filteredTambons.map((s) => (
+                            <SelectItem key={s.id} value={String(s.id)}>
+                              {s.name_th}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -374,16 +400,16 @@ const Payment: React.FC = () => {
                     <div>
                       <Label>{language === 'th' ? 'จังหวัด' : 'Province'}</Label>
                       <Select
-                        value={provinceIdx !== null ? String(provinceIdx) : ''}
+                        value={selectedProvinceId ? String(selectedProvinceId) : ''}
                         onValueChange={(val) => {
-                          const idx = val === '' ? null : parseInt(val, 10);
-                          setProvinceIdx(idx);
-                          const name = idx !== null ? thaiAddress[idx].nameTh : '';
-                          setProvince(name);
+                          const id = val === '' ? null : parseInt(val, 10);
+                          setSelectedProvinceId(id);
+                          const p = provinces.find((x) => x.id === id);
+                          setProvince(p ? p.name_th : '');
                           // Reset lower levels
-                          setDistrictIdx(null);
+                          setSelectedAmphureId(null);
                           setDistrict('');
-                          setSubdistrictIdx(null);
+                          setSelectedTambonId(null);
                           setSubdistrict('');
                           setPostalCode('');
                         }}
@@ -392,9 +418,9 @@ const Payment: React.FC = () => {
                           <SelectValue placeholder={language === 'th' ? 'เลือกจังหวัด' : 'Select Province'} />
                         </SelectTrigger>
                         <SelectContent>
-                          {thaiAddress.map((p, idx) => (
-                            <SelectItem key={p.nameTh + idx} value={String(idx)}>
-                              {p.nameTh}
+                          {provinces.map((p) => (
+                            <SelectItem key={p.id} value={String(p.id)}>
+                              {p.name_th}
                             </SelectItem>
                           ))}
                         </SelectContent>
