@@ -40,6 +40,12 @@ const PaymentSuccess: React.FC = () => {
         // Send invoice email before clearing cart
         if (cartItems.length > 0) {
           try {
+            // Load shipping info stored during checkout
+            let shipping: any = undefined;
+            try {
+              const raw = localStorage.getItem(`checkout:${sessionId}:shipping`);
+              if (raw) shipping = JSON.parse(raw);
+            } catch {}
             await supabase.functions.invoke('send-invoice', {
               body: {
                 orderId: sessionId,
@@ -53,6 +59,7 @@ const PaymentSuccess: React.FC = () => {
                 })),
                 totalAmount: total,
                 taxAmount: 0,
+                shipping,
               }
             });
           } catch (invoiceError) {

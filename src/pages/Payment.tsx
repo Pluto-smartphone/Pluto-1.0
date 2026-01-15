@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { thaiAddress } from '@/data/thaiAddress';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { useCart } from '@/contexts/CartContext';
@@ -30,6 +31,7 @@ const Payment: React.FC = () => {
   const [paymentMethod, setPaymentMethod] = useState('promptpay'); // Only PromptPay and Bank Transfer
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [paymentPageUrl, setPaymentPageUrl] = useState<string | null>(null);
+  const [paymentPageHtml, setPaymentPageHtml] = useState<string | null>(null);
 
   // Shipping form state
   const [firstName, setFirstName] = useState('');
@@ -45,6 +47,10 @@ const Payment: React.FC = () => {
   const [district, setDistrict] = useState('');
   const [province, setProvince] = useState('');
   const [postalCode, setPostalCode] = useState('');
+  // Cascading address selection indices
+  const [provinceIdx, setProvinceIdx] = useState<number | null>(null);
+  const [districtIdx, setDistrictIdx] = useState<number | null>(null);
+  const [subdistrictIdx, setSubdistrictIdx] = useState<number | null>(null);
 
   // Receipt upload state
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
@@ -55,6 +61,12 @@ const Payment: React.FC = () => {
       style: 'currency',
       currency: 'THB',
     }).format(price);
+
+  // Derived lists for cascading dropdowns
+  const districts = provinceIdx !== null ? thaiAddress[provinceIdx].districts : [];
+  const subdistricts = provinceIdx !== null && districtIdx !== null
+    ? thaiAddress[provinceIdx].districts[districtIdx].subdistricts
+    : [];
 
   const isDisposableDomain = (domain: string) => {
     const list = ['mailinator.com','tempmail.com','10minutemail.com','guerrillamail.com','yopmail.com'];
@@ -158,8 +170,29 @@ const Payment: React.FC = () => {
         const serverMsg = (data as any)?.error;
         throw new Error(serverMsg || error.message);
       }
-      if (data?.sessionId) setSessionId(data.sessionId);
+      if (data?.sessionId) {
+        setSessionId(data.sessionId);
+        try {
+          const shippingData = {
+            firstName,
+            lastName,
+            email,
+            phone,
+            houseNo,
+            building,
+            moo,
+            soi,
+            road,
+            subdistrict,
+            district,
+            province,
+            postalCode,
+          };
+          localStorage.setItem(`checkout:${data.sessionId}:shipping`, JSON.stringify(shippingData));
+        } catch {}
+      }
       if (data?.url) setPaymentPageUrl(data.url);
+      if (data?.html) setPaymentPageHtml(data.html);
     } catch (err: any) {
       toast({
         title: language === 'th' ? 'เกิดข้อผิดพลาด' : 'Error',
@@ -282,19 +315,90 @@ const Payment: React.FC = () => {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <Label>{language === 'th' ? 'ตำบล/แขวง' : 'Subdistrict'}</Label>
-                      <Input value={subdistrict} onChange={(e) => setSubdistrict(e.target.value)} />
+                      <Label>{language === 'th' ? 'อำเภอ/เขต' : 'District'}</Label>
+                      <Select
+                        value={districtIdx !== null ? String(districtIdx) : ''}
+                        onValueChange={(val) => {
+                          const idx = val === '' ? null : parseInt(val, 10);
+                          setDistrictIdx(idx);
+                          const name = idx !== null ? districts[idx].nameTh : '';
+                          setDistrict(name);
+                          // Reset subdistrict when district changes
+                          setSubdistrictIdx(null);
+                          setSubdistrict('');
+                          setPostalCode('');
+                        }}
+                        disabled={provinceIdx === null}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder={language === 'th' ? 'เลือกอำเภอ/เขต' : 'Select District'} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {districts.map((d, idx) => (
+                            <SelectItem key={d.nameTh + idx} value={String(idx)}>
+                              {d.nameTh}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div>
-                      <Label>{language === 'th' ? 'อำเภอ/เขต' : 'District'}</Label>
-                      <Input value={district} onChange={(e) => setDistrict(e.target.value)} />
+                      <Label>{language === 'th' ? 'ตำบล/แขวง' : 'Subdistrict'}</Label>
+                      <Select
+                        value={subdistrictIdx !== null ? String(subdistrictIdx) : ''}
+                        onValueChange={(val) => {
+                          const idx = val === '' ? null : parseInt(val, 10);
+                          setSubdistrictIdx(idx);
+                          const name = idx !== null ? subdistricts[idx].nameTh : '';
+                          setSubdistrict(name);
+                          const code = idx !== null ? subdistricts[idx].postalCode : '';
+                          setPostalCode(code);
+                        }}
+                        disabled={districtIdx === null}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder={language === 'th' ? 'เลือกตำบล/แขวง' : 'Select Subdistrict'} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {subdistricts.map((s, idx) => (
+                            <SelectItem key={s.nameTh + idx} value={String(idx)}>
+                              {s.nameTh}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label>{language === 'th' ? 'จังหวัด' : 'Province'}</Label>
-                      <Input value={province} onChange={(e) => setProvince(e.target.value)} />
+                      <Select
+                        value={provinceIdx !== null ? String(provinceIdx) : ''}
+                        onValueChange={(val) => {
+                          const idx = val === '' ? null : parseInt(val, 10);
+                          setProvinceIdx(idx);
+                          const name = idx !== null ? thaiAddress[idx].nameTh : '';
+                          setProvince(name);
+                          // Reset lower levels
+                          setDistrictIdx(null);
+                          setDistrict('');
+                          setSubdistrictIdx(null);
+                          setSubdistrict('');
+                          setPostalCode('');
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder={language === 'th' ? 'เลือกจังหวัด' : 'Select Province'} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {thaiAddress.map((p, idx) => (
+                            <SelectItem key={p.nameTh + idx} value={String(idx)}>
+                              {p.nameTh}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div>
                       <Label>{language === 'th' ? 'รหัสไปรษณีย์' : 'Postal Code'}</Label>
@@ -371,12 +475,21 @@ const Payment: React.FC = () => {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <iframe
-                      src={paymentPageUrl}
-                      title="Payment"
-                      className="w-full rounded-md border"
-                      style={{ height: 700 }}
-                    />
+                    {paymentPageHtml ? (
+                      <iframe
+                        srcDoc={paymentPageHtml}
+                        title="Payment"
+                        className="w-full rounded-md border"
+                        style={{ height: 700 }}
+                      />
+                    ) : (
+                      <iframe
+                        src={paymentPageUrl}
+                        title="Payment"
+                        className="w-full rounded-md border"
+                        style={{ height: 700 }}
+                      />
+                    )}
                     <div className="text-xs text-muted-foreground mt-2">
                       {language === 'th'
                         ? 'หากไม่แสดง กรุณาเลื่อนลงมา หรือเปิดด้วยเบราว์เซอร์ตัวเต็ม'

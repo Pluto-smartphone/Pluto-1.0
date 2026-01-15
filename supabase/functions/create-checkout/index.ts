@@ -18,7 +18,7 @@ serve(async (req) => {
   );
 
   try {
-    const { cartItems, paymentMethod = 'promptpay' } = await req.json();
+    const { cartItems, paymentMethod = 'promptpay', shipping } = await req.json();
     
     if (!cartItems || cartItems.length === 0) {
       return new Response(
@@ -89,12 +89,28 @@ serve(async (req) => {
         payment_method: paymentMethod,
         postbackUrl: postbackUrl,
         customerName: user?.user_metadata?.full_name || "Customer",
+        // shipping info (flattened)
+        ...(shipping ? {
+          ship_firstName: String(shipping.firstName || ''),
+          ship_lastName: String(shipping.lastName || ''),
+          ship_email: String(shipping.email || ''),
+          ship_phone: String(shipping.phone || ''),
+          ship_houseNo: String(shipping.houseNo || ''),
+          ship_building: String(shipping.building || ''),
+          ship_moo: String(shipping.moo || ''),
+          ship_soi: String(shipping.soi || ''),
+          ship_road: String(shipping.road || ''),
+          ship_subdistrict: String(shipping.subdistrict || ''),
+          ship_district: String(shipping.district || ''),
+          ship_province: String(shipping.province || ''),
+          ship_postalCode: String(shipping.postalCode || ''),
+        } : {}),
       },
     });
 
     console.log("Checkout session created:", session.id);
 
-    return new Response(JSON.stringify({ url: session.url, sessionId: session.id }), {
+    return new Response(JSON.stringify({ url: session.url, sessionId: session.id, html: session.html }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });

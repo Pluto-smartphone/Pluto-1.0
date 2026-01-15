@@ -22,6 +22,7 @@ export interface CreateCheckoutParams {
 export interface CheckoutSession {
   id: string;
   url: string;
+  html?: string;
 }
 
 export interface PaymentVerificationResult {

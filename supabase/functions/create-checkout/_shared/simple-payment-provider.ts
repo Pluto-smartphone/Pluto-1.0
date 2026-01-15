@@ -79,6 +79,7 @@ export class SimplePaymentProvider implements PaymentProvider {
     return {
       id: referenceNo,
       url: `data:text/html;base64,${base64Html}`,
+      html,
     };
   }
 
