@@ -19,7 +19,7 @@ import { useCart } from '@/contexts/CartContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { thaiAddress } from '@/data/thaiAddress';
+import { thaiAddress, Province } from '@/data/thaiAddress';
 
 const Payment: React.FC = () => {
   const { items, getCartTotal } = useCart();
@@ -69,10 +69,54 @@ const Payment: React.FC = () => {
       currency: 'THB',
     }).format(price);
 
-  // Derived lists for cascading dropdowns from static dataset
-  const districts = provinceIdx !== null ? thaiAddress[provinceIdx].districts : [];
+  // Address dataset (fallback to sample, then upgrade to full 77 provinces at runtime)
+  const [addressData, setAddressData] = useState<Province[]>(thaiAddress);
+
+  useEffect(() => {
+    const loadFullDataset = async () => {
+      try {
+        // If already cached, use it
+        const cached = localStorage.getItem('thaiAddressFull');
+        if (cached) {
+          setAddressData(JSON.parse(cached));
+          return;
+        }
+        // Load from local static file (no external dependency)
+        const res = await fetch('/thai-address.json', { cache: 'default' });
+        if (res.ok) {
+          const raw = await res.json();
+          let full: Province[] = raw;
+          // If dataset uses name_th keys (kongvut), transform to our structure
+          if (Array.isArray(raw) && raw.length && (raw[0].name_th || raw[0].nameTh)) {
+            if (raw[0].name_th) {
+              full = raw.map((p: any) => ({
+                nameTh: p.name_th,
+                nameEn: p.name_en,
+                districts: (p.amphure || p.district || []).map((d: any) => ({
+                  nameTh: d.name_th,
+                  nameEn: d.name_en,
+                  subdistricts: (d.tambon || d.sub_district || []).map((s: any) => ({
+                    nameTh: s.name_th,
+                    nameEn: s.name_en,
+                    postalCode: String(s.zip_code || s.post_code || ''),
+                  })),
+                })),
+              }));
+            }
+          }
+          localStorage.setItem('thaiAddressFull', JSON.stringify(full));
+          setAddressData(full);
+        }
+      } catch (e) {
+        console.warn('Failed to load local thai-address.json; using sample.', e);
+      }
+    };
+    loadFullDataset();
+  }, []);
+
+  const districts = provinceIdx !== null ? addressData[provinceIdx].districts : [];
   const subdistricts = provinceIdx !== null && districtIdx !== null
-    ? thaiAddress[provinceIdx].districts[districtIdx].subdistricts
+    ? addressData[provinceIdx].districts[districtIdx].subdistricts
     : [];
 
   // Load default address from user profile (address book)
@@ -97,13 +141,13 @@ const Payment: React.FC = () => {
           setSubdistrict(addr.subdistrict || '');
           setPostalCode(addr.postalCode || '');
           // Try to map to indices
-          const pIdx = thaiAddress.findIndex(p => p.nameTh === addr.province);
+          const pIdx = addressData.findIndex(p => p.nameTh === addr.province);
           if (pIdx >= 0) setProvinceIdx(pIdx);
           if (pIdx >= 0 && addr.district) {
-            const dIdx = thaiAddress[pIdx].districts.findIndex(d => d.nameTh === addr.district);
+            const dIdx = addressData[pIdx].districts.findIndex(d => d.nameTh === addr.district);
             if (dIdx >= 0) setDistrictIdx(dIdx);
             if (dIdx >= 0 && addr.subdistrict) {
-              const sIdx = thaiAddress[pIdx].districts[dIdx].subdistricts.findIndex(s => s.nameTh === addr.subdistrict);
+              const sIdx = addressData[pIdx].districts[dIdx].subdistricts.findIndex(s => s.nameTh === addr.subdistrict);
               if (sIdx >= 0) setSubdistrictIdx(sIdx);
             }
           }
@@ -406,7 +450,7 @@ const Payment: React.FC = () => {
                         onValueChange={(val) => {
                           const idx = val === '' ? null : parseInt(val, 10);
                           setProvinceIdx(idx);
-                          const name = idx !== null ? thaiAddress[idx].nameTh : '';
+                          const name = idx !== null ? addressData[idx].nameTh : '';
                           setProvince(name);
                           // Reset lower levels
                           setDistrictIdx(null);
@@ -420,7 +464,7 @@ const Payment: React.FC = () => {
                           <SelectValue placeholder={language === 'th' ? 'เลือกจังหวัด' : 'Select Province'} />
                         </SelectTrigger>
                         <SelectContent>
-                          {thaiAddress.map((p, idx) => (
+                          {addressData.map((p, idx) => (
                             <SelectItem key={p.nameTh + idx} value={String(idx)}>
                               {p.nameTh}
                             </SelectItem>
