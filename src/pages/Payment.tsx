@@ -119,6 +119,40 @@ const Payment: React.FC = () => {
     ? addressData[provinceIdx].districts[districtIdx].subdistricts
     : [];
 
+  // Global options when not yet narrowed
+  const allDistrictOptions = addressData.flatMap((p, pIdx) =>
+    p.districts.map((d, dIdx) => ({ pIdx, dIdx, label: `${d.nameTh} (${p.nameTh})`, nameTh: d.nameTh }))
+  );
+  const allSubdistrictOptions = addressData.flatMap((p, pIdx) =>
+    p.districts.flatMap((d, dIdx) =>
+      d.subdistricts.map((s, sIdx) => ({ pIdx, dIdx, sIdx, label: `${s.nameTh} (${d.nameTh}, ${p.nameTh})`, nameTh: s.nameTh, postalCode: s.postalCode }))
+    )
+  );
+
+  // After dataset updates, try to remap indices using current string values
+  useEffect(() => {
+    if (!addressData || addressData.length === 0) return;
+    // Province index
+    if (province && provinceIdx === null) {
+      const pIdx = addressData.findIndex(p => p.nameTh === province);
+      if (pIdx >= 0) setProvinceIdx(pIdx);
+    }
+    // District index
+    if (provinceIdx !== null && district && districtIdx === null) {
+      const dIdx = addressData[provinceIdx].districts.findIndex(d => d.nameTh === district);
+      if (dIdx >= 0) setDistrictIdx(dIdx);
+    }
+    // Subdistrict index and postalCode
+    if (provinceIdx !== null && districtIdx !== null && subdistrict && subdistrictIdx === null) {
+      const sIdx = addressData[provinceIdx].districts[districtIdx].subdistricts.findIndex(s => s.nameTh === subdistrict);
+      if (sIdx >= 0) {
+        setSubdistrictIdx(sIdx);
+        const code = addressData[provinceIdx].districts[districtIdx].subdistricts[sIdx].postalCode;
+        if (code) setPostalCode(code);
+      }
+    }
+  }, [addressData]);
+
   // Load default address from user profile (address book)
   useEffect(() => {
     (async () => {
@@ -482,54 +516,89 @@ const Payment: React.FC = () => {
                     <div>
                       <Label>{language === 'th' ? 'อำเภอ/เขต' : 'District'}</Label>
                       <Select
-                        value={districtIdx !== null ? String(districtIdx) : ''}
+                        value={provinceIdx !== null && districtIdx !== null ? String(districtIdx) : ''}
                         onValueChange={(val) => {
-                          const idx = val === '' ? null : parseInt(val, 10);
-                          setDistrictIdx(idx);
-                          const name = idx !== null ? districts[idx].nameTh : '';
-                          setDistrict(name);
+                          if (val.includes(':')) {
+                            const [pStr, dStr] = val.split(':');
+                            const pI = parseInt(pStr, 10);
+                            const dI = parseInt(dStr, 10);
+                            setProvinceIdx(pI);
+                            setDistrictIdx(dI);
+                            setProvince(addressData[pI]?.nameTh || '');
+                            setDistrict(addressData[pI]?.districts[dI]?.nameTh || '');
+                          } else {
+                            const idx = val === '' ? null : parseInt(val, 10);
+                            setDistrictIdx(idx);
+                            const name = idx !== null ? districts[idx].nameTh : '';
+                            setDistrict(name);
+                          }
                           // Reset subdistrict when district changes
                           setSubdistrictIdx(null);
                           setSubdistrict('');
                           setPostalCode('');
                         }}
-                        disabled={provinceIdx === null}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder={language === 'th' ? 'เลือกอำเภอ/เขต' : 'Select District'} />
                         </SelectTrigger>
                         <SelectContent>
-                          {districts.map((d, idx) => (
-                            <SelectItem key={d.nameTh + idx} value={String(idx)}>
-                              {d.nameTh}
-                            </SelectItem>
-                          ))}
+                          {provinceIdx === null
+                            ? allDistrictOptions.map((opt) => (
+                                <SelectItem key={`${opt.pIdx}:${opt.dIdx}`} value={`${opt.pIdx}:${opt.dIdx}`}>
+                                  {opt.label}
+                                </SelectItem>
+                              ))
+                            : districts.map((d, idx) => (
+                                <SelectItem key={d.nameTh + idx} value={String(idx)}>
+                                  {d.nameTh}
+                                </SelectItem>
+                              ))}
                         </SelectContent>
                       </Select>
                     </div>
                     <div>
                       <Label>{language === 'th' ? 'ตำบล/แขวง' : 'Subdistrict'}</Label>
                       <Select
-                        value={subdistrictIdx !== null ? String(subdistrictIdx) : ''}
+                        value={provinceIdx !== null && districtIdx !== null && subdistrictIdx !== null ? String(subdistrictIdx) : ''}
                         onValueChange={(val) => {
-                          const idx = val === '' ? null : parseInt(val, 10);
-                          setSubdistrictIdx(idx);
-                          const name = idx !== null ? subdistricts[idx].nameTh : '';
-                          setSubdistrict(name);
-                          const code = idx !== null ? subdistricts[idx].postalCode : '';
-                          setPostalCode(code);
+                          if (val.includes(':')) {
+                            const [pStr, dStr, sStr] = val.split(':');
+                            const pI = parseInt(pStr, 10);
+                            const dI = parseInt(dStr, 10);
+                            const sI = parseInt(sStr, 10);
+                            setProvinceIdx(pI);
+                            setDistrictIdx(dI);
+                            setSubdistrictIdx(sI);
+                            setProvince(addressData[pI]?.nameTh || '');
+                            setDistrict(addressData[pI]?.districts[dI]?.nameTh || '');
+                            const sub = addressData[pI]?.districts[dI]?.subdistricts[sI];
+                            setSubdistrict(sub?.nameTh || '');
+                            setPostalCode(sub?.postalCode || '');
+                          } else {
+                            const idx = val === '' ? null : parseInt(val, 10);
+                            setSubdistrictIdx(idx);
+                            const name = idx !== null ? subdistricts[idx].nameTh : '';
+                            setSubdistrict(name);
+                            const code = idx !== null ? subdistricts[idx].postalCode : '';
+                            setPostalCode(code);
+                          }
                         }}
-                        disabled={districtIdx === null}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder={language === 'th' ? 'เลือกตำบล/แขวง' : 'Select Subdistrict'} />
                         </SelectTrigger>
                         <SelectContent>
-                          {subdistricts.map((s, idx) => (
-                            <SelectItem key={s.nameTh + idx} value={String(idx)}>
-                              {s.nameTh}
-                            </SelectItem>
-                          ))}
+                          {provinceIdx === null || districtIdx === null
+                            ? allSubdistrictOptions.map((opt) => (
+                                <SelectItem key={`${opt.pIdx}:${opt.dIdx}:${opt.sIdx}`} value={`${opt.pIdx}:${opt.dIdx}:${opt.sIdx}`}>
+                                  {opt.label}
+                                </SelectItem>
+                              ))
+                            : subdistricts.map((s, idx) => (
+                                <SelectItem key={s.nameTh + idx} value={String(idx)}>
+                                  {s.nameTh}
+                                </SelectItem>
+                              ))}
                         </SelectContent>
                       </Select>
                     </div>
