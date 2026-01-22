@@ -19,6 +19,7 @@ import { useCart } from '@/contexts/CartContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { thaiAddress } from '@/data/thaiAddress';
 
 const Payment: React.FC = () => {
   const { items, getCartTotal } = useCart();
@@ -46,21 +47,21 @@ const Payment: React.FC = () => {
   const [district, setDistrict] = useState('');
   const [province, setProvince] = useState('');
   const [postalCode, setPostalCode] = useState('');
-  // API-based address datasets and selections
-  type ProvinceAPI = { id: number; name_th: string; name_en: string };
-  type AmphureAPI = { id: number; province_id: number; name_th: string; name_en: string };
-  type TambonAPI = { id: number; amphure_id: number; name_th: string; name_en: string; zip_code: string };
-
-  const [provinces, setProvinces] = useState<ProvinceAPI[]>([]);
-  const [amphures, setAmphures] = useState<AmphureAPI[]>([]);
-  const [tambons, setTambons] = useState<TambonAPI[]>([]);
-  const [selectedProvinceId, setSelectedProvinceId] = useState<number | null>(null);
-  const [selectedAmphureId, setSelectedAmphureId] = useState<number | null>(null);
-  const [selectedTambonId, setSelectedTambonId] = useState<number | null>(null);
+  // Static dataset indices for cascading selection
+  const [provinceIdx, setProvinceIdx] = useState<number | null>(null);
+  const [districtIdx, setDistrictIdx] = useState<number | null>(null);
+  const [subdistrictIdx, setSubdistrictIdx] = useState<number | null>(null);
 
   // Receipt upload state
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [saveAddress, setSaveAddress] = useState(true);
+
+  // Credit card fields
+  const [cardNumber, setCardNumber] = useState('');
+  const [cardName, setCardName] = useState('');
+  const [cardExpiry, setCardExpiry] = useState(''); // MM/YY
+  const [cardCvv, setCardCvv] = useState('');
 
   const formatPrice = (price: number) =>
     new Intl.NumberFormat('th-TH', {
@@ -68,32 +69,50 @@ const Payment: React.FC = () => {
       currency: 'THB',
     }).format(price);
 
-  // Fetch Thai administrative divisions from public API
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [pRes, aRes, tRes] = await Promise.all([
-          fetch('https://raw.githubusercontent.com/kongvut/thai-province-data/master/api_province.json'),
-          fetch('https://raw.githubusercontent.com/kongvut/thai-province-data/master/api_amphure.json'),
-          fetch('https://raw.githubusercontent.com/kongvut/thai-province-data/master/api_tambon.json'),
-        ]);
-        const [pJson, aJson, tJson] = await Promise.all([pRes.json(), aRes.json(), tRes.json()]);
-        setProvinces(pJson);
-        setAmphures(aJson);
-        setTambons(tJson);
-      } catch (e) {
-        console.error('Failed to fetch Thai address data', e);
-      }
-    };
-    fetchData();
-  }, []);
+  // Derived lists for cascading dropdowns from static dataset
+  const districts = provinceIdx !== null ? thaiAddress[provinceIdx].districts : [];
+  const subdistricts = provinceIdx !== null && districtIdx !== null
+    ? thaiAddress[provinceIdx].districts[districtIdx].subdistricts
+    : [];
 
-  const filteredAmphures = selectedProvinceId
-    ? amphures.filter((a) => a.province_id === selectedProvinceId)
-    : [];
-  const filteredTambons = selectedAmphureId
-    ? tambons.filter((t) => t.amphure_id === selectedAmphureId)
-    : [];
+  // Load default address from user profile (address book)
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const meta = session?.user?.user_metadata as any;
+        const addr = meta?.addressBook?.default;
+        if (addr) {
+          setFirstName(addr.firstName || '');
+          setLastName(addr.lastName || '');
+          setEmail(addr.email || '');
+          setPhone(addr.phone || '');
+          setHouseNo(addr.houseNo || '');
+          setBuilding(addr.building || '');
+          setMoo(addr.moo || '');
+          setSoi(addr.soi || '');
+          setRoad(addr.road || '');
+          setProvince(addr.province || '');
+          setDistrict(addr.district || '');
+          setSubdistrict(addr.subdistrict || '');
+          setPostalCode(addr.postalCode || '');
+          // Try to map to indices
+          const pIdx = thaiAddress.findIndex(p => p.nameTh === addr.province);
+          if (pIdx >= 0) setProvinceIdx(pIdx);
+          if (pIdx >= 0 && addr.district) {
+            const dIdx = thaiAddress[pIdx].districts.findIndex(d => d.nameTh === addr.district);
+            if (dIdx >= 0) setDistrictIdx(dIdx);
+            if (dIdx >= 0 && addr.subdistrict) {
+              const sIdx = thaiAddress[pIdx].districts[dIdx].subdistricts.findIndex(s => s.nameTh === addr.subdistrict);
+              if (sIdx >= 0) setSubdistrictIdx(sIdx);
+            }
+          }
+        }
+      } catch (e) {
+        // ignore
+      }
+    })();
+  }, []);
 
   const isDisposableDomain = (domain: string) => {
     const list = ['mailinator.com','tempmail.com','10minutemail.com','guerrillamail.com','yopmail.com'];
@@ -126,6 +145,21 @@ const Payment: React.FC = () => {
     if (!houseNo || !subdistrict || !district || !province || !/^\d{5}$/.test(postalCode)) {
       toast({ title: language === 'th' ? 'กรอกที่อยู่ให้ครบถ้วน' : 'Please complete the address', variant: 'destructive' });
       return false;
+    }
+    if (paymentMethod === 'card') {
+      const num = cardNumber.replace(/\s+/g, '');
+      if (!/^\d{13,19}$/.test(num)) {
+        toast({ title: language === 'th' ? 'หมายเลขบัตรไม่ถูกต้อง' : 'Invalid card number', variant: 'destructive' });
+        return false;
+      }
+      if (!/^\d{2}\/\d{2}$/.test(cardExpiry)) {
+        toast({ title: language === 'th' ? 'วันหมดอายุไม่ถูกต้อง (ดด/ปป)' : 'Invalid expiry (MM/YY)', variant: 'destructive' });
+        return false;
+      }
+      if (!/^\d{3,4}$/.test(cardCvv)) {
+        toast({ title: language === 'th' ? 'CVV ไม่ถูกต้อง' : 'Invalid CVV', variant: 'destructive' });
+        return false;
+      }
     }
     return true;
   };
@@ -167,6 +201,29 @@ const Payment: React.FC = () => {
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
+      // Save address to address book if logged in and opted-in
+      if (session?.user && saveAddress) {
+        const shippingData = {
+          firstName,
+          lastName,
+          email,
+          phone,
+          houseNo,
+          building,
+          moo,
+          soi,
+          road,
+          subdistrict,
+          district,
+          province,
+          postalCode,
+        };
+        try {
+          await supabase.auth.updateUser({ data: { addressBook: { default: shippingData } } });
+        } catch (e) {
+          console.warn('Failed to save address book', e);
+        }
+      }
 
       const { data, error } = await supabase.functions.invoke('create-checkout', {
         body: {
@@ -340,76 +397,21 @@ const Payment: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label>{language === 'th' ? 'อำเภอ/เขต' : 'District'}</Label>
-                      <Select
-                        value={selectedAmphureId ? String(selectedAmphureId) : ''}
-                        onValueChange={(val) => {
-                          const id = val === '' ? null : parseInt(val, 10);
-                          setSelectedAmphureId(id);
-                          const a = filteredAmphures.find((x) => x.id === id);
-                          setDistrict(a ? a.name_th : '');
-                          // Reset tambon when amphure changes
-                          setSelectedTambonId(null);
-                          setSubdistrict('');
-                          setPostalCode('');
-                        }}
-                        disabled={!selectedProvinceId}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder={language === 'th' ? 'เลือกอำเภอ/เขต' : 'Select District'} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {filteredAmphures.map((d) => (
-                            <SelectItem key={d.id} value={String(d.id)}>
-                              {d.name_th}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label>{language === 'th' ? 'ตำบล/แขวง' : 'Subdistrict'}</Label>
-                      <Select
-                        value={selectedTambonId ? String(selectedTambonId) : ''}
-                        onValueChange={(val) => {
-                          const id = val === '' ? null : parseInt(val, 10);
-                          setSelectedTambonId(id);
-                          const t = filteredTambons.find((x) => x.id === id);
-                          setSubdistrict(t ? t.name_th : '');
-                          setPostalCode(t ? t.zip_code : '');
-                        }}
-                        disabled={!selectedAmphureId}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder={language === 'th' ? 'เลือกตำบล/แขวง' : 'Select Subdistrict'} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {filteredTambons.map((s) => (
-                            <SelectItem key={s.id} value={String(s.id)}>
-                              {s.name_th}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
+                  {/* Province first, then District/Subdistrict */}
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label>{language === 'th' ? 'จังหวัด' : 'Province'}</Label>
                       <Select
-                        value={selectedProvinceId ? String(selectedProvinceId) : ''}
+                        value={provinceIdx !== null ? String(provinceIdx) : ''}
                         onValueChange={(val) => {
-                          const id = val === '' ? null : parseInt(val, 10);
-                          setSelectedProvinceId(id);
-                          const p = provinces.find((x) => x.id === id);
-                          setProvince(p ? p.name_th : '');
+                          const idx = val === '' ? null : parseInt(val, 10);
+                          setProvinceIdx(idx);
+                          const name = idx !== null ? thaiAddress[idx].nameTh : '';
+                          setProvince(name);
                           // Reset lower levels
-                          setSelectedAmphureId(null);
+                          setDistrictIdx(null);
                           setDistrict('');
-                          setSelectedTambonId(null);
+                          setSubdistrictIdx(null);
                           setSubdistrict('');
                           setPostalCode('');
                         }}
@@ -418,9 +420,9 @@ const Payment: React.FC = () => {
                           <SelectValue placeholder={language === 'th' ? 'เลือกจังหวัด' : 'Select Province'} />
                         </SelectTrigger>
                         <SelectContent>
-                          {provinces.map((p) => (
-                            <SelectItem key={p.id} value={String(p.id)}>
-                              {p.name_th}
+                          {thaiAddress.map((p, idx) => (
+                            <SelectItem key={p.nameTh + idx} value={String(idx)}>
+                              {p.nameTh}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -430,6 +432,70 @@ const Payment: React.FC = () => {
                       <Label>{language === 'th' ? 'รหัสไปรษณีย์' : 'Postal Code'}</Label>
                       <Input value={postalCode} onChange={(e) => setPostalCode(e.target.value)} />
                     </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label>{language === 'th' ? 'อำเภอ/เขต' : 'District'}</Label>
+                      <Select
+                        value={districtIdx !== null ? String(districtIdx) : ''}
+                        onValueChange={(val) => {
+                          const idx = val === '' ? null : parseInt(val, 10);
+                          setDistrictIdx(idx);
+                          const name = idx !== null ? districts[idx].nameTh : '';
+                          setDistrict(name);
+                          // Reset subdistrict when district changes
+                          setSubdistrictIdx(null);
+                          setSubdistrict('');
+                          setPostalCode('');
+                        }}
+                        disabled={provinceIdx === null}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder={language === 'th' ? 'เลือกอำเภอ/เขต' : 'Select District'} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {districts.map((d, idx) => (
+                            <SelectItem key={d.nameTh + idx} value={String(idx)}>
+                              {d.nameTh}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>{language === 'th' ? 'ตำบล/แขวง' : 'Subdistrict'}</Label>
+                      <Select
+                        value={subdistrictIdx !== null ? String(subdistrictIdx) : ''}
+                        onValueChange={(val) => {
+                          const idx = val === '' ? null : parseInt(val, 10);
+                          setSubdistrictIdx(idx);
+                          const name = idx !== null ? subdistricts[idx].nameTh : '';
+                          setSubdistrict(name);
+                          const code = idx !== null ? subdistricts[idx].postalCode : '';
+                          setPostalCode(code);
+                        }}
+                        disabled={districtIdx === null}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder={language === 'th' ? 'เลือกตำบล/แขวง' : 'Select Subdistrict'} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {subdistricts.map((s, idx) => (
+                            <SelectItem key={s.nameTh + idx} value={String(idx)}>
+                              {s.nameTh}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-2">
+                    <input id="saveAddress" type="checkbox" className="h-4 w-4" checked={saveAddress} onChange={(e) => setSaveAddress(e.target.checked)} />
+                    <Label htmlFor="saveAddress" className="cursor-pointer">
+                      {language === 'th' ? 'บันทึกที่อยู่นี้ในบัญชีของฉัน' : 'Save this address to my account'}
+                    </Label>
                   </div>
                 </CardContent>
               </Card>
@@ -458,6 +524,9 @@ const Payment: React.FC = () => {
                           ? 'โอนเงินผ่านธนาคาร'
                           : 'Bank Transfer'}
                       </SelectItem>
+                      <SelectItem value="card">
+                        {language === 'th' ? 'บัตรเครดิต/เดบิต' : 'Credit/Debit Card'}
+                      </SelectItem>
                     </SelectContent>
                   </Select>
 
@@ -467,6 +536,32 @@ const Payment: React.FC = () => {
                       {language === 'th'
                         ? 'โอนเงินไปยังบัญชีที่จะแสดงในหน้าชำระเงิน และแนบสลิปหลังโอน'
                         : 'Transfer to the bank account shown on the payment page and upload the receipt.'}
+                    </div>
+                  )}
+
+                  {paymentMethod === 'card' && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                      <div className="md:col-span-2">
+                        <Label>{language === 'th' ? 'หมายเลขบัตร' : 'Card Number'}</Label>
+                        <Input inputMode="numeric" placeholder="4242 4242 4242 4242" value={cardNumber} onChange={(e) => setCardNumber(e.target.value)} />
+                      </div>
+                      <div>
+                        <Label>{language === 'th' ? 'ชื่อบนบัตร' : 'Name on Card'}</Label>
+                        <Input value={cardName} onChange={(e) => setCardName(e.target.value)} />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label>{language === 'th' ? 'หมดอายุ (ดด/ปป)' : 'Expiry (MM/YY)'}</Label>
+                          <Input placeholder="MM/YY" value={cardExpiry} onChange={(e) => setCardExpiry(e.target.value)} />
+                        </div>
+                        <div>
+                          <Label>CVV</Label>
+                          <Input inputMode="numeric" value={cardCvv} onChange={(e) => setCardCvv(e.target.value)} />
+                        </div>
+                      </div>
+                      <div className="md:col-span-2 text-xs text-muted-foreground">
+                        {language === 'th' ? 'หมายเหตุ: การชำระด้วยบัตรจะเปิดใช้งานในภายหลัง (โหมดสาธิต)' : 'Note: Card processing will be enabled later (demo mode).'}
+                      </div>
                     </div>
                   )}
                 </CardContent>
