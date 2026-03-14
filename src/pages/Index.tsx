@@ -8,14 +8,15 @@ import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import ProductCard from '@/components/ui/product-card';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { sampleProducts, getProductsByCondition } from '@/data/products';
+import { useProducts } from '@/hooks/useProducts';
 
 const Index = () => {
   const { t } = useLanguage();
+  const { data: products = [], isLoading } = useProducts();
   
-  const featuredProducts = sampleProducts.slice(0, 4);
-  const newPhones = getProductsByCondition('new').slice(0, 3);
-  const usedPhones = getProductsByCondition('used').slice(0, 3);
+  const featuredProducts = products.slice(0, 4);
+  const newPhones = products.filter(product => product.condition === 'new').slice(0, 3);
+  const usedPhones = products.filter(product => product.condition === 'used').slice(0, 3);
 
   const features = [
     {

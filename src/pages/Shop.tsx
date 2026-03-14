@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Search, Filter, Grid, List } from 'lucide-react';
+import { Search, Grid, List } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -9,8 +9,8 @@ import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import ProductCard from '@/components/ui/product-card';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { sampleProducts, getProductsByCondition } from '@/data/products';
 import { Product } from '@/contexts/CartContext';
+import { useProducts } from '@/hooks/useProducts';
 
 const Shop: React.FC = () => {
   const { t } = useLanguage();
@@ -21,6 +21,8 @@ const Shop: React.FC = () => {
   const [priceRange, setPriceRange] = useState('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
+  const { data: products = [], isLoading, isError } = useProducts();
+
   // Initialize search query from URL parameters
   useEffect(() => {
     const searchParam = searchParams.get('search');
@@ -29,10 +31,10 @@ const Shop: React.FC = () => {
     }
   }, [searchParams]);
 
-  const newPhones = getProductsByCondition('new');
-  const usedPhones = getProductsByCondition('used');
+  const newPhones = products.filter(product => product.condition === 'new');
+  const usedPhones = products.filter(product => product.condition === 'used');
 
-  const brands = Array.from(new Set(sampleProducts.map(p => p.brand)));
+  const brands = Array.from(new Set(products.map(p => p.brand)));
 
   const filterAndSortProducts = (products: Product[]) => {
     let filtered = products;
@@ -90,6 +92,34 @@ const Shop: React.FC = () => {
 
   const filteredNewPhones = useMemo(() => filterAndSortProducts(newPhones), [newPhones, searchQuery, sortBy, brandFilter, priceRange]);
   const filteredUsedPhones = useMemo(() => filterAndSortProducts(usedPhones), [usedPhones, searchQuery, sortBy, brandFilter, priceRange]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="text-center py-20 text-muted-foreground">
+            {t('loading')}
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="text-center py-20 text-destructive">
+            {t('error')}
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
