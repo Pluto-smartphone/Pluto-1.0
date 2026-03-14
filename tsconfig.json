@@ -1,5 +1,4 @@
 {
-  "include": ["next-env.d.ts", "src", ".next/types/**/*.ts"],
   "files": [],
   "references": [
     { "path": "./tsconfig.app.json" },
