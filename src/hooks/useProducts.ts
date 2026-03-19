@@ -3,32 +3,50 @@ import { supabase } from '@/integrations/supabase/client';
 import type { Tables } from '@/integrations/supabase/types';
 import type { Product } from '@/contexts/CartContext';
 
-type DbProduct = Tables<'products'>;
+type DbPhone = Tables<'phones'>;
+type DbPhoneImage = Tables<'phone_images'>;
 
-const mapDbProductToProduct = (product: DbProduct): Product => {
-  const condition = product.condition === 'new' ? 'new' : 'used';
+const IMAGE_BUCKET = 'product-images';
+
+const toPublicImageUrl = (storagePath: string) => {
+  if (!storagePath) return '/placeholder.svg';
+  if (storagePath.startsWith('http://') || storagePath.startsWith('https://')) return storagePath;
+  return supabase.storage.from(IMAGE_BUCKET).getPublicUrl(storagePath).data.publicUrl || '/placeholder.svg';
+};
+
+const mapDbPhoneToProduct = (
+  phone: DbPhone,
+  images: Pick<DbPhoneImage, 'storage_path' | 'display_order' | 'is_primary'>[] | null | undefined
+): Product => {
+  const condition = phone.condition === 'new' ? 'new' : 'used';
+  const sortedImages = (images || []).slice().sort((a, b) => {
+    const aPrimary = a.is_primary ? 1 : 0;
+    const bPrimary = b.is_primary ? 1 : 0;
+    if (aPrimary !== bPrimary) return bPrimary - aPrimary;
+    return (a.display_order ?? 0) - (b.display_order ?? 0);
+  });
+  const image = sortedImages[0]?.storage_path ? toPublicImageUrl(sortedImages[0].storage_path) : '/placeholder.svg';
 
   return {
-    id: product.id,
-    name: product.name,
-    price: product.price,
-    image: product.image_url || '/placeholder.svg',
-    brand: product.brand,
+    id: phone.id,
+    name: phone.name,
+    price: phone.price,
+    image,
+    brand: phone.brand,
     condition,
-    storage: 'N/A',
-    color: 'N/A',
-    description: product.description || '',
+    storage: phone.storage,
+    color: phone.color,
+    description: phone.description || '',
   };
 };
 
 export const useProducts = () => {
   return useQuery<Product[], Error>({
-    queryKey: ['products'],
+    queryKey: ['phones'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .eq('status', 'available')
+        .from('phones')
+        .select('*, phone_images (storage_path, display_order, is_primary)')
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -39,7 +57,8 @@ export const useProducts = () => {
         return [];
       }
 
-      return data.map(mapDbProductToProduct);
+      return (data as (DbPhone & { phone_images?: Pick<DbPhoneImage, 'storage_path' | 'display_order' | 'is_primary'>[] })[])
+        .map((row) => mapDbPhoneToProduct(row, row.phone_images));
     },
   });
 };

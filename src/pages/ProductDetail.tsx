@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, ShoppingCart, Heart, Star, Shield, Truck, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -10,8 +10,19 @@ import Footer from '@/components/layout/Footer';
 import { useCart } from '@/contexts/CartContext';
 import { useWishlist } from '@/contexts/WishlistContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { getProductById } from '@/data/products';
 import { cn } from '@/lib/utils';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import type { Tables } from '@/integrations/supabase/types';
+import type { Product } from '@/contexts/CartContext';
+
+const IMAGE_BUCKET = 'product-images';
+
+const toPublicImageUrl = (storagePath: string) => {
+  if (!storagePath) return '/placeholder.svg';
+  if (storagePath.startsWith('http://') || storagePath.startsWith('https://')) return storagePath;
+  return supabase.storage.from(IMAGE_BUCKET).getPublicUrl(storagePath).data.publicUrl || '/placeholder.svg';
+};
 
 const ProductDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -20,7 +31,98 @@ const ProductDetail: React.FC = () => {
   const { toggleWishlist, isInWishlist } = useWishlist();
   const { t } = useLanguage();
 
-  const product = id ? getProductById(id) : null;
+  const { data, isLoading, isError } = useQuery<
+    { product: Product; images: { id: string; url: string; storagePath: string }[] } | null,
+    Error
+  >({
+    queryKey: ['phone', id],
+    enabled: !!id,
+    queryFn: async () => {
+      if (!id) return null;
+
+      const { data: phone, error } = await supabase
+        .from('phones')
+        .select('*')
+        .eq('id', id)
+        .single<Tables<'phones'>>();
+
+      if (error) throw error;
+      if (!phone) return null;
+
+      const { data: imageRows, error: imageError } = await supabase
+        .from('phone_images')
+        .select('id, storage_path, display_order, is_primary')
+        .eq('phone_id', id)
+        .order('is_primary', { ascending: false })
+        .order('display_order', { ascending: true })
+        .order('created_at', { ascending: true });
+
+      if (imageError) throw imageError;
+
+      const images =
+        (imageRows || []).map((img) => ({
+          id: img.id,
+          storagePath: img.storage_path,
+          url: toPublicImageUrl(img.storage_path),
+        })) ?? [];
+
+      const condition: Product['condition'] = phone.condition === 'new' ? 'new' : 'used';
+      const primaryUrl = images[0]?.url || '/placeholder.svg';
+
+      return {
+        product: {
+          id: phone.id,
+          name: phone.name,
+          price: phone.price,
+          image: primaryUrl,
+          brand: phone.brand,
+          condition,
+          storage: phone.storage,
+          color: phone.color,
+          description: phone.description || '',
+        },
+        images,
+      };
+    },
+  });
+
+  const product = data?.product;
+  const images = data?.images || [];
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+
+  const displayImage = useMemo(() => {
+    if (selectedImage) return selectedImage;
+    if (product?.image) return product.image;
+    return '/placeholder.svg';
+  }, [selectedImage, product?.image]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <main className="container mx-auto px-4 py-8">
+          <div className="text-center py-20 text-muted-foreground">
+            {t('loading')}
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <main className="container mx-auto px-4 py-8">
+          <div className="text-center py-20 text-destructive">
+            {t('error')}
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   if (!product) {
     return (
@@ -79,7 +181,7 @@ const ProductDetail: React.FC = () => {
           <div className="space-y-4">
             <div className="relative">
               <img
-                src={product.image}
+                src={displayImage}
                 alt={product.name}
                 className="w-full h-96 lg:h-[500px] object-cover rounded-lg"
               />
@@ -90,6 +192,32 @@ const ProductDetail: React.FC = () => {
                 {product.condition === 'new' ? t('firstHand') : t('secondHand')}
               </Badge>
             </div>
+
+            {images.length > 1 && (
+              <div className="grid grid-cols-5 gap-2">
+                {images.slice(0, 10).map((img) => {
+                  const active = img.url === displayImage;
+                  return (
+                    <button
+                      key={img.id}
+                      type="button"
+                      onClick={() => setSelectedImage(img.url)}
+                      className={cn(
+                        'rounded-md overflow-hidden border transition-colors',
+                        active ? 'border-primary' : 'border-border hover:border-primary/50'
+                      )}
+                      aria-label="Select image"
+                    >
+                      <img
+                        src={img.url}
+                        alt={product.name}
+                        className="h-16 w-full object-cover"
+                      />
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Product Info */}

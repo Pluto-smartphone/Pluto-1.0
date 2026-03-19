@@ -14,6 +14,83 @@ export type Database = {
   }
   public: {
     Tables: {
+      phones: {
+        Row: {
+          id: string
+          name: string
+          brand: string
+          price: number
+          storage: string
+          color: string
+          condition: string
+          description: string | null
+          stock_quantity: number
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          name: string
+          brand: string
+          price: number
+          storage: string
+          color: string
+          condition: string
+          description?: string | null
+          stock_quantity?: number
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          name?: string
+          brand?: string
+          price?: number
+          storage?: string
+          color?: string
+          condition?: string
+          description?: string | null
+          stock_quantity?: number
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      phone_images: {
+        Row: {
+          id: string
+          phone_id: string
+          storage_path: string
+          display_order: number
+          is_primary: boolean | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          phone_id: string
+          storage_path: string
+          display_order?: number
+          is_primary?: boolean | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          phone_id?: string
+          storage_path?: string
+          display_order?: number
+          is_primary?: boolean | null
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "phone_images_phone_id_fkey"
+            columns: ["phone_id"]
+            isOneToOne: false
+            referencedRelation: "phones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           brand: string
