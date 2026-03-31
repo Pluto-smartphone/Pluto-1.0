@@ -15,7 +15,6 @@ const About: React.FC = () => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    phone: '',
     subject: '',
     message: ''
   });
@@ -33,31 +32,31 @@ const About: React.FC = () => {
   const features = [
     {
       icon: Shield,
-      title: t('language') === 'th' ? 'การรับประกันคุณภาพ' : 'Quality Guarantee',
+      title: t('language') === 'th' ? 'การรับประกันคุณภาพ' : t('qualityGuarantee'),
       description: t('language') === 'th' 
         ? 'สินค้าทุกชิ้นผ่านการตรวจสอบคุณภาพอย่างเข้มงวดและมาพร้อมการรับประกัน'
-        : 'Every product undergoes rigorous quality inspection and comes with warranty coverage'
+        : t('qualityDesc')
     },
     {
       icon: Award,
-      title: t('language') === 'th' ? 'ผู้เชี่ยวชาญด้านเทคโนโลยี' : 'Technology Experts',
+      title: t('language') === 'th' ? 'ผู้เชี่ยวชาญด้านเทคโนโลยี' : t('technologyExperts'),
       description: t('language') === 'th'
         ? 'ทีมงานผู้เชี่ยวชาญพร้อมให้คำปรึกษาและช่วยเหลือในการเลือกสินค้า'
-        : 'Expert team ready to provide consultation and assistance in product selection'
+        : t('expertsDesc')
     },
     {
       icon: Users,
-      title: t('language') === 'th' ? 'ชุมชนผู้ใช้งาน' : 'User Community',
+      title: t('language') === 'th' ? 'ชุมชนผู้ใช้งาน' : t('userCommunity'),
       description: t('language') === 'th'
         ? 'ชุมชนผู้ใช้งานขนาดใหญ่ที่พร้อมแบ่งปันประสบการณ์และให้คำแนะนำ'
-        : 'Large user community ready to share experiences and provide recommendations'
+        : t('communityDesc')
     },
     {
       icon: Smartphone,
-      title: t('language') === 'th' ? 'สินค้าหลากหลาย' : 'Diverse Products',
+      title: t('language') === 'th' ? 'สินค้าหลากหลาย' : t('diverseProducts'),
       description: t('language') === 'th'
         ? 'มีสมาร์ทโฟนให้เลือกมากมายจากทุกแบรนด์ดัง ทั้งใหม่และมือสอง'
-        : 'Wide selection of smartphones from all major brands, both new and pre-owned'
+        : t('diverseDesc')
     }
   ];
 
@@ -192,15 +191,9 @@ const About: React.FC = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   {[
                     {
-                      icon: Phone,
-                      title: t('phoneSell'),
-                      content: '+66 81 323 9563',
-                      description: t('language') === 'th' ? 'จันทร์-ศุกร์ 9:00-18:00' : 'Mon-Fri 9:00-18:00'
-                    },
-                    {
                       icon: Mail,
                       title: t('emailSell'),
-                      content: 'hello@pluto.com',
+                      content: 'pluto.th.business@gmail.com',
                       description: t('language') === 'th' ? 'ตอบกลับภายใน 24 ชั่วโมง' : 'Reply within 24 hours'
                     },
                     {
@@ -307,18 +300,6 @@ const About: React.FC = () => {
                           required
                         />
                       </div>
-                    </div>
-
-                      <div>
-                        <Label htmlFor="phone">
-                          {t('phoneSell')}
-                        </Label>
-                      <Input
-                        id="phone"
-                        value={formData.phone}
-                        onChange={(e) => handleInputChange('phone', e.target.value)}
-                        placeholder={t('language') === 'th' ? 'กรอกเบอร์โทรศัพท์' : 'Enter your phone number'}
-                      />
                     </div>
 
                       <div>
