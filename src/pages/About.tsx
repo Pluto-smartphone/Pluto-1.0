@@ -6,8 +6,6 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import Header from '@/components/layout/Header';
-import Footer from '@/components/layout/Footer';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 const About: React.FC = () => {
@@ -61,10 +59,7 @@ const About: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-      
-      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-16">
+    <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-16">
         {/* Hero Section */}
         <div className="text-center mb-16 animate-fade-in">
           <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-6">
@@ -209,19 +204,28 @@ const About: React.FC = () => {
                       description: t('language') === 'th' ? 'เสาร์-อาทิตย์ 10:00-16:00' : 'Sat-Sun 10:00-16:00'
                     }
                   ].map((info, index) => (
-                    <Card key={index} className="hover-lift" style={{ animationDelay: `${index * 0.1}s` }}>
+                    <Card key={index} className="hover-lift min-w-0" style={{ animationDelay: `${index * 0.1}s` }}>
                       <CardContent className="p-6">
-                        <div className="flex items-start space-x-4">
-                          <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <div className="flex min-w-0 items-start gap-4">
+                          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-primary/10">
                             <info.icon className="h-5 w-5 text-primary" />
                           </div>
-                          <div>
-                            <h4 className="font-semibold text-foreground mb-1">
+                          <div className="min-w-0 flex-1">
+                            <h4 className="mb-1 font-semibold text-foreground">
                               {info.title}
                             </h4>
-                            <p className="text-primary font-medium mb-1">
-                              {info.content}
-                            </p>
+                            {info.icon === Mail ? (
+                              <a
+                                href={`mailto:${info.content}`}
+                                className="mb-1 block break-all text-left text-sm font-medium text-primary underline-offset-2 hover:underline sm:text-base"
+                              >
+                                {info.content}
+                              </a>
+                            ) : (
+                              <p className="mb-1 break-words text-primary font-medium [overflow-wrap:anywhere]">
+                                {info.content}
+                              </p>
+                            )}
                             <p className="text-sm text-muted-foreground">
                               {info.description}
                             </p>
@@ -374,9 +378,6 @@ const About: React.FC = () => {
           </div>
         </div>
       </main>
-
-      <Footer />
-    </div>
   );
 };
 

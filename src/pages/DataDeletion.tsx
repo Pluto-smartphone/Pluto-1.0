@@ -4,8 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import Header from "@/components/layout/Header";
-import Footer from "@/components/layout/Footer";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -73,9 +71,7 @@ export default function DataDeletion() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
-      <Header />
-      <main className="flex-1 container mx-auto px-4 py-8 max-w-2xl">
+    <main className="container mx-auto max-w-2xl px-4 py-8">
         <Card>
           <CardHeader>
             <CardTitle className="text-3xl">Data Deletion Request</CardTitle>
@@ -151,7 +147,5 @@ export default function DataDeletion() {
           </CardContent>
         </Card>
       </main>
-      <Footer />
-    </div>
   );
 }

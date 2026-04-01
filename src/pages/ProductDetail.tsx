@@ -5,8 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import Header from '@/components/layout/Header';
-import Footer from '@/components/layout/Footer';
 import { useCart } from '@/contexts/CartContext';
 import { useWishlist } from '@/contexts/WishlistContext';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -16,7 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import type { Tables } from '@/integrations/supabase/types';
 import type { Product } from '@/contexts/CartContext';
 
-const IMAGE_BUCKET = 'product-images';
+const IMAGE_BUCKET = 'phone-images';
 
 const toPublicImageUrl = (storagePath: string) => {
   if (!storagePath) return '/placeholder.svg';
@@ -98,44 +96,32 @@ const ProductDetail: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background">
-        <Header />
-        <main className="container mx-auto px-4 py-8">
-          <div className="text-center py-20 text-muted-foreground">
-            {t('loading')}
-          </div>
-        </main>
-        <Footer />
-      </div>
+      <main className="container mx-auto px-4 py-8">
+        <div className="text-center py-20 text-muted-foreground">
+          {t('loading')}
+        </div>
+      </main>
     );
   }
 
   if (isError) {
     return (
-      <div className="min-h-screen bg-background">
-        <Header />
-        <main className="container mx-auto px-4 py-8">
-          <div className="text-center py-20 text-destructive">
-            {t('error')}
-          </div>
-        </main>
-        <Footer />
-      </div>
+      <main className="container mx-auto px-4 py-8">
+        <div className="text-center py-20 text-destructive">
+          {t('error')}
+        </div>
+      </main>
     );
   }
 
   if (!product) {
     return (
-      <div className="min-h-screen bg-background">
-        <Header />
-        <main className="container mx-auto px-4 py-8">
-          <div className="text-center">
-            <h1 className="text-2xl font-bold text-foreground mb-4">Product Not Found</h1>
-            <Button onClick={() => navigate('/shop')}>Back to Shop</Button>
-          </div>
-        </main>
-        <Footer />
-      </div>
+      <main className="container mx-auto px-4 py-8">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-foreground mb-4">Product Not Found</h1>
+          <Button onClick={() => navigate('/shop')}>Back to Shop</Button>
+        </div>
+      </main>
     );
   }
 
@@ -163,9 +149,7 @@ const ProductDetail: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-      <main className="container mx-auto px-4 py-8">
+    <main className="container mx-auto px-4 py-8">
         {/* Back Button */}
         <Button
           variant="ghost"
@@ -338,8 +322,6 @@ const ProductDetail: React.FC = () => {
           </div>
         </div>
       </main>
-      <Footer />
-    </div>
   );
 };
 

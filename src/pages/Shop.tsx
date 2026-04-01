@@ -5,8 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import Header from '@/components/layout/Header';
-import Footer from '@/components/layout/Footer';
 import ProductCard from '@/components/ui/product-card';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Product } from '@/contexts/CartContext';
@@ -95,36 +93,26 @@ const Shop: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background">
-        <Header />
-        <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="text-center py-20 text-muted-foreground">
-            {t('loading')}
-          </div>
-        </main>
-        <Footer />
-      </div>
+      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="text-center py-20 text-muted-foreground">
+          {t('loading')}
+        </div>
+      </main>
     );
   }
 
   if (isError) {
     return (
-      <div className="min-h-screen bg-background">
-        <Header />
-        <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="text-center py-20 text-destructive">
-            {t('error')}
-          </div>
-        </main>
-        <Footer />
-      </div>
+      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="text-center py-20 text-destructive">
+          {t('error')}
+        </div>
+      </main>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-      
+    <>
       <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Page Header */}
         <div className="text-center mb-12 animate-fade-in">
@@ -271,9 +259,7 @@ const Shop: React.FC = () => {
           </TabsContent>
         </Tabs>
       </main>
-
-      <Footer />
-    </div>
+    </>
   );
 };
 

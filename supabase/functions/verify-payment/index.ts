@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { getPaymentProvider } from "../_shared/payment-config.ts";
+import { getPaymentProviderForVerification } from "../_shared/payment-config.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -22,7 +22,7 @@ serve(async (req) => {
     }
 
     // Get payment provider (configurable via PAYMENT_PROVIDER env var)
-    const paymentProvider = getPaymentProvider();
+    const paymentProvider = getPaymentProviderForVerification(sessionId);
 
     // Verify payment using payment provider abstraction
     const result = await paymentProvider.verifyPayment(sessionId);

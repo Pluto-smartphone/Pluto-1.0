@@ -13,8 +13,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import Header from '@/components/layout/Header';
-import Footer from '@/components/layout/Footer';
 import { useCart } from '@/contexts/CartContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -28,7 +26,8 @@ const Payment: React.FC = () => {
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentComplete, setPaymentComplete] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState('promptpay'); // Only PromptPay and Bank Transfer
+  /** stripe = Stripe Checkout (บัตร + PromptPay QR บนหน้า Stripe); อื่นๆ = โหมดแมนนวล */
+  const [paymentMethod, setPaymentMethod] = useState('stripe');
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [paymentPageUrl, setPaymentPageUrl] = useState<string | null>(null);
   const [paymentPageHtml, setPaymentPageHtml] = useState<string | null>(null);
@@ -56,12 +55,6 @@ const Payment: React.FC = () => {
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [saveAddress, setSaveAddress] = useState(true);
-
-  // Credit card fields
-  const [cardNumber, setCardNumber] = useState('');
-  const [cardName, setCardName] = useState('');
-  const [cardExpiry, setCardExpiry] = useState(''); // MM/YY
-  const [cardCvv, setCardCvv] = useState('');
 
   const formatPrice = (price: number) =>
     new Intl.NumberFormat('th-TH', {
@@ -224,21 +217,6 @@ const Payment: React.FC = () => {
       toast({ title: language === 'th' ? 'กรอกที่อยู่ให้ครบถ้วน' : 'Please complete the address', variant: 'destructive' });
       return false;
     }
-    if (paymentMethod === 'card') {
-      const num = cardNumber.replace(/\s+/g, '');
-      if (!/^\d{13,19}$/.test(num)) {
-        toast({ title: language === 'th' ? 'หมายเลขบัตรไม่ถูกต้อง' : 'Invalid card number', variant: 'destructive' });
-        return false;
-      }
-      if (!/^\d{2}\/\d{2}$/.test(cardExpiry)) {
-        toast({ title: language === 'th' ? 'วันหมดอายุไม่ถูกต้อง (ดด/ปป)' : 'Invalid expiry (MM/YY)', variant: 'destructive' });
-        return false;
-      }
-      if (!/^\d{3,4}$/.test(cardCvv)) {
-        toast({ title: language === 'th' ? 'CVV ไม่ถูกต้อง' : 'Invalid CVV', variant: 'destructive' });
-        return false;
-      }
-    }
     return true;
   };
 
@@ -353,8 +331,14 @@ const Payment: React.FC = () => {
           localStorage.setItem(`checkout:${data.sessionId}:shipping`, JSON.stringify(shippingData));
         } catch {}
       }
-      if (data?.url) setPaymentPageUrl(data.url);
-      if (data?.html) setPaymentPageHtml(data.html);
+
+      const checkoutUrl = data?.url as string | undefined;
+      if (checkoutUrl?.startsWith('http://') || checkoutUrl?.startsWith('https://')) {
+        window.location.assign(checkoutUrl);
+        return;
+      }
+      if (checkoutUrl) setPaymentPageUrl(checkoutUrl);
+      if (data?.html) setPaymentPageHtml(data.html as string);
     } catch (err: any) {
       toast({
         title: language === 'th' ? 'เกิดข้อผิดพลาด' : 'Error',
@@ -372,9 +356,7 @@ const Payment: React.FC = () => {
 
   if (paymentComplete) {
     return (
-      <div className="min-h-screen bg-background">
-        <Header />
-        <main className="container mx-auto py-16 text-center">
+      <main className="container mx-auto py-16 text-center">
           <CheckCircle className="h-16 w-16 text-success mx-auto mb-6" />
           <h1 className="text-3xl font-bold mb-4">{t('paymentSuccess')}</h1>
           <p className="text-muted-foreground mb-8">
@@ -393,16 +375,11 @@ const Payment: React.FC = () => {
             </Button>
           </Link>
         </main>
-        <Footer />
-      </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-
-      <main className="container mx-auto px-4 py-8">
+    <main className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center gap-4 mb-8">
             <Link to="/cart">
@@ -629,19 +606,29 @@ const Payment: React.FC = () => {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="stripe">
+                        {language === 'th'
+                          ? 'Stripe — บัตร / PromptPay QR'
+                          : 'Stripe — Card / PromptPay QR'}
+                      </SelectItem>
                       <SelectItem value="promptpay">
-                        {language === 'th' ? 'พร้อมเพย์' : 'PromptPay'}
+                        {language === 'th' ? 'พร้อมเพย์ (แมนนวล)' : 'PromptPay (manual page)'}
                       </SelectItem>
                       <SelectItem value="bank-transfer">
                         {language === 'th'
-                          ? 'โอนเงินผ่านธนาคาร'
-                          : 'Bank Transfer'}
-                      </SelectItem>
-                      <SelectItem value="card">
-                        {language === 'th' ? 'บัตรเครดิต/เดบิต' : 'Credit/Debit Card'}
+                          ? 'โอนเงินผ่านธนาคาร (แมนนวล)'
+                          : 'Bank transfer (manual)'}
                       </SelectItem>
                     </SelectContent>
                   </Select>
+
+                  {paymentMethod === 'stripe' && (
+                    <p className="text-sm text-muted-foreground">
+                      {language === 'th'
+                        ? 'จะไปยังหน้าชำระเงินปลอดภัยของ Stripe เพื่อเลือกบัตรเครดิต/เดบิตหรือสแกน PromptPay QR'
+                        : 'You will be redirected to secure Stripe Checkout to pay by card or PromptPay QR.'}
+                    </p>
+                  )}
 
                   {/* Bank information note */}
                   {paymentMethod === 'bank-transfer' && (
@@ -651,37 +638,11 @@ const Payment: React.FC = () => {
                         : 'Transfer to the bank account shown on the payment page and upload the receipt.'}
                     </div>
                   )}
-
-                  {paymentMethod === 'card' && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-                      <div className="md:col-span-2">
-                        <Label>{language === 'th' ? 'หมายเลขบัตร' : 'Card Number'}</Label>
-                        <Input inputMode="numeric" placeholder="4242 4242 4242 4242" value={cardNumber} onChange={(e) => setCardNumber(e.target.value)} />
-                      </div>
-                      <div>
-                        <Label>{language === 'th' ? 'ชื่อบนบัตร' : 'Name on Card'}</Label>
-                        <Input value={cardName} onChange={(e) => setCardName(e.target.value)} />
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label>{language === 'th' ? 'หมดอายุ (ดด/ปป)' : 'Expiry (MM/YY)'}</Label>
-                          <Input placeholder="MM/YY" value={cardExpiry} onChange={(e) => setCardExpiry(e.target.value)} />
-                        </div>
-                        <div>
-                          <Label>CVV</Label>
-                          <Input inputMode="numeric" value={cardCvv} onChange={(e) => setCardCvv(e.target.value)} />
-                        </div>
-                      </div>
-                      <div className="md:col-span-2 text-xs text-muted-foreground">
-                        {language === 'th' ? 'หมายเหตุ: การชำระด้วยบัตรจะเปิดใช้งานในภายหลัง (โหมดสาธิต)' : 'Note: Card processing will be enabled later (demo mode).'}
-                      </div>
-                    </div>
-                  )}
                 </CardContent>
               </Card>
 
               {/* Receipt Upload */}
-              {sessionId && (
+              {sessionId && paymentMethod !== 'stripe' && (
                 <Card>
                   <CardHeader>
                     <CardTitle>
@@ -774,9 +735,6 @@ const Payment: React.FC = () => {
           </div>
         </div>
       </main>
-
-      <Footer />
-    </div>
   );
 };
 

@@ -10,8 +10,6 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Upload, Smartphone, DollarSign, Package } from 'lucide-react';
-import Header from '@/components/layout/Header';
-import Footer from '@/components/layout/Footer';
 import { z } from 'zod';
 
 const sellFormSchema = z.object({
@@ -172,10 +170,7 @@ const Sell: React.FC = () => {
                      formData.price && formData.contactEmail;
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-      
-      <main className="container mx-auto px-4 py-8">
+    <main className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
           {/* Header Section */}
           <div className="text-center mb-8">
@@ -432,9 +427,6 @@ const Sell: React.FC = () => {
           </Card>
         </div>
       </main>
-
-      <Footer />
-    </div>
   );
 };
 

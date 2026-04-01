@@ -133,9 +133,9 @@ All colors MUST be HSL.
     font-variation-settings: "opsz" 32;
   }
 
-  /* Scroll behavior */
+  /* Avoid global smooth scroll — it makes route changes and scroll-to-top feel sluggish */
   html {
-    scroll-behavior: smooth;
+    scroll-behavior: auto;
   }
 
   /* Custom animations and utilities */

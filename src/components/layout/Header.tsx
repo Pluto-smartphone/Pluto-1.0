@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ShoppingCart, Menu, X, Search, Globe, LogIn, LogOut, Rocket } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -19,6 +19,7 @@ const Header: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const { language, setLanguage, t } = useLanguage();
   const { getCartItemsCount } = useCart();
   const { user, signOut } = useAuth();
@@ -39,8 +40,15 @@ const Header: React.FC = () => {
   };
 
   const handleSearchClick = () => {
-    setIsSearchOpen(!isSearchOpen);
+    setIsMenuOpen(false);
+    setIsSearchOpen((open) => !open);
   };
+
+  useEffect(() => {
+    if (isSearchOpen && searchInputRef.current) {
+      searchInputRef.current.focus({ preventScroll: true });
+    }
+  }, [isSearchOpen]);
 
   const navigation = [
     { name: t('home'), href: '/' },
@@ -50,9 +58,10 @@ const Header: React.FC = () => {
   ];
 
   return (
-    <header className="bg-background/95 backdrop-blur-md border-b border-border sticky top-0 z-50">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
+    <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur-sm supports-[backdrop-filter]:bg-background/80">
+      <div className="relative">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex h-16 items-center justify-between">
           {/* Logo */}
           <Link to="/" className="hover-lift">
             <span className="text-2xl font-bold text-primary">Pluto</span>
@@ -141,46 +150,51 @@ const Header: React.FC = () => {
               variant="ghost"
               size="sm"
               className="md:hidden"
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              onClick={() => {
+                setIsSearchOpen(false);
+                setIsMenuOpen((open) => !open);
+              }}
               aria-label="Toggle menu"
             >
               {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </Button>
           </div>
+          </div>
         </div>
 
-        {/* Search Bar */}
+        {/* Search + mobile menu: full-bleed overlays — no header height animation (less jank) */}
         <div
           className={cn(
-            "transition-all duration-300 ease-in-out overflow-hidden border-t border-border",
-            isSearchOpen ? "max-h-20 opacity-100" : "max-h-0 opacity-0"
+            'absolute left-0 right-0 top-full z-50 border-b border-border bg-background/95 shadow-md backdrop-blur-md transition-[opacity,visibility] duration-200 ease-out supports-[backdrop-filter]:bg-background/80',
+            isSearchOpen ? 'visible opacity-100' : 'invisible pointer-events-none opacity-0'
           )}
         >
-          <form onSubmit={handleSearch} className="py-4">
-            <div className="flex gap-2">
-              <Input
-                type="text"
-                placeholder={`${t('search')}...`}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="flex-1"
-                autoFocus
-              />
-              <Button type="submit" size="sm" disabled={!searchQuery.trim()}>
-                <Search className="h-4 w-4" />
-              </Button>
-            </div>
-          </form>
+          <div className="container mx-auto px-4 py-4 sm:px-6 lg:px-8">
+            <form onSubmit={handleSearch}>
+              <div className="flex gap-2">
+                <Input
+                  ref={searchInputRef}
+                  type="text"
+                  placeholder={`${t('search')}...`}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="flex-1"
+                />
+                <Button type="submit" size="sm" disabled={!searchQuery.trim()}>
+                  <Search className="h-4 w-4" />
+                </Button>
+              </div>
+            </form>
+          </div>
         </div>
 
-        {/* Mobile Navigation */}
         <div
           className={cn(
-            "md:hidden transition-all duration-300 ease-in-out overflow-hidden",
-            isMenuOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
+            'md:hidden absolute left-0 right-0 top-full z-40 max-h-[min(70vh,calc(100dvh-4rem))] overflow-y-auto border-b border-border bg-background/95 shadow-md backdrop-blur-md transition-[opacity,visibility] duration-200 ease-out supports-[backdrop-filter]:bg-background/80',
+            isMenuOpen ? 'visible opacity-100' : 'invisible pointer-events-none opacity-0'
           )}
         >
-          <nav className="py-4 space-y-2">
+          <nav className="space-y-2 px-4 py-4 sm:px-6">
             {navigation.map((item) => (
               <Link
                 key={item.name}
@@ -237,4 +251,4 @@ const Header: React.FC = () => {
   );
 };
 
-export default Header;
+export default React.memo(Header);

@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
-import { getPaymentProvider } from "./_shared/payment-config.ts";
+import { getPaymentProvider } from "../_shared/payment-config.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -57,7 +57,7 @@ serve(async (req) => {
     }, 0);
 
     // Get payment provider (Simple Payment - Manual)
-    const paymentProvider = getPaymentProvider();
+    const paymentProvider = getPaymentProvider(paymentMethod);
 
     // Create line items (amount in satang)
     const lineItems = cartItems.map((item: any) => {
@@ -78,9 +78,13 @@ serve(async (req) => {
     const postbackUrl = `${supabaseUrl}/functions/v1/payment-webhook`;
 
     // Create checkout session using payment provider
+    const customerEmail =
+      (shipping && typeof shipping.email === "string" && shipping.email.trim()) ||
+      user?.email;
+
     const session = await paymentProvider.createCheckoutSession({
       lineItems: lineItems,
-      customerEmail: user?.email,
+      customerEmail: customerEmail || undefined,
       userId: user?.id || "guest",
       successUrl: `${origin}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
       cancelUrl: `${origin}/payment`,

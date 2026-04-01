@@ -4,8 +4,6 @@ import { ArrowRight, Star, Shield, Truck, Headphones } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import Header from '@/components/layout/Header';
-import Footer from '@/components/layout/Footer';
 import ProductCard from '@/components/ui/product-card';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useProducts } from '@/hooks/useProducts';
@@ -37,9 +35,7 @@ const Index = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-      
+    <>
       {/* Hero Section */}
       <section className="relative overflow-hidden bg-gradient-to-br from-background via-primary-light to-background">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-20 lg:py-28">
@@ -193,9 +189,7 @@ const Index = () => {
           </div>
         </div>
       </section>
-
-      <Footer />
-    </div>
+    </>
   );
 };
 

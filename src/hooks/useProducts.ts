@@ -6,7 +6,7 @@ import type { Product } from '@/contexts/CartContext';
 type DbPhone = Tables<'phones'>;
 type DbPhoneImage = Tables<'phone_images'>;
 
-const IMAGE_BUCKET = 'product-images';
+const IMAGE_BUCKET = 'phone-images';
 
 const toPublicImageUrl = (storagePath: string) => {
   if (!storagePath) return '/placeholder.svg';

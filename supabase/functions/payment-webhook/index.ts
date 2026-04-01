@@ -1,9 +1,9 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
+import Stripe from "npm:stripe@14.25.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, stripe-signature",
 };
 
 serve(async (req) => {
@@ -11,17 +11,49 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  const supabaseClient = createClient(
-    Deno.env.get("SUPABASE_URL") ?? "",
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-  );
+  const stripeSecret = Deno.env.get("STRIPE_SECRET_KEY")?.trim();
+  const webhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET")?.trim();
+  const stripeSig = req.headers.get("stripe-signature");
 
+  if (stripeSig && stripeSecret && webhookSecret) {
+    try {
+      const stripe = new Stripe(stripeSecret, {
+        apiVersion: "2023-10-16",
+        httpClient: Stripe.createFetchHttpClient(),
+      });
+      const rawBody = await req.text();
+      const event = stripe.webhooks.constructEvent(rawBody, stripeSig, webhookSecret);
+
+      if (event.type === "checkout.session.completed") {
+        const session = event.data.object as Stripe.Checkout.Session;
+        console.log("Stripe checkout.session.completed:", {
+          id: session.id,
+          payment_status: session.payment_status,
+          amount_total: session.amount_total,
+          client_reference_id: session.client_reference_id,
+        });
+        // Optional: persist order — add orders table + insert here
+      }
+
+      return new Response(JSON.stringify({ received: true }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    } catch (err: any) {
+      console.error("Stripe webhook error:", err?.message);
+      return new Response(JSON.stringify({ error: err?.message || "Invalid signature" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+  }
+
+  // Legacy / manual providers (e.g. GB Prime Pay style body)
   try {
-    // GB Prime Pay sends POST data as form data or JSON
-    let paymentData: any = {};
-    
+    let paymentData: Record<string, unknown> = {};
+
     const contentType = req.headers.get("content-type") || "";
-    
+
     if (contentType.includes("application/json")) {
       paymentData = await req.json();
     } else if (contentType.includes("application/x-www-form-urlencoded")) {
@@ -30,12 +62,10 @@ serve(async (req) => {
         paymentData[key] = value;
       }
     } else {
-      // Try to parse as text first
       const text = await req.text();
       try {
         paymentData = JSON.parse(text);
       } catch {
-        // If not JSON, parse as URL-encoded
         const params = new URLSearchParams(text);
         for (const [key, value] of params.entries()) {
           paymentData[key] = value;
@@ -43,59 +73,38 @@ serve(async (req) => {
       }
     }
 
-    console.log("Payment webhook received:", paymentData);
-
-    // Extract payment information from GB Prime Pay callback
-    // GB Prime Pay fields: referenceNo, resultCode, amount, gbpReferenceNo, etc.
-    const referenceNo = paymentData.referenceNo || paymentData.refno || paymentData.reference_no;
-    const resultCode = paymentData.resultCode;
-    const status = paymentData.status || (resultCode === "00" ? "success" : "failed");
-    const amount = paymentData.amount || paymentData.total;
-    const transactionId = paymentData.gbpReferenceNo || paymentData.transaction_id || paymentData.txn_id;
-    const paymentMethod = paymentData.paymentType || paymentData.payment_method || paymentData.channel;
-
+    const referenceNo = paymentData.referenceNo ?? paymentData.refno ?? paymentData.reference_no;
     if (!referenceNo) {
-      console.error("Missing reference number in webhook data");
-      return new Response(
-        JSON.stringify({ error: "Missing reference number" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      console.log("Non-Stripe webhook (no referenceNo):", paymentData);
+      return new Response(JSON.stringify({ success: true, message: "Ignored" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
     }
 
-    // Store payment webhook data in database (optional - create a payments table if needed)
-    // For now, just log it
-    console.log("Payment webhook data:", {
-      referenceNo,
-      status,
-      amount,
-      transactionId,
-      paymentMethod,
-      fullData: paymentData,
-    });
+    const resultCode = paymentData.resultCode;
+    const status =
+      paymentData.status || (resultCode === "00" ? "success" : "failed");
 
-    // TODO: Update order status in database based on payment status
-    // Example:
-    // if (status === 'success' || status === 'paid') {
-    //   await supabaseClient
-    //     .from('orders')
-    //     .update({ status: 'paid', payment_reference: referenceNo })
-    //     .eq('reference_no', referenceNo);
-    // }
+    console.log("Payment webhook (legacy):", { referenceNo, status });
 
-    // Return success response to GB Prime Pay
-    return new Response(JSON.stringify({ 
-      success: true,
-      message: "Webhook received successfully"
-    }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 200,
-    });
-  } catch (error: any) {
+    return new Response(
+      JSON.stringify({
+        success: true,
+        message: "Webhook received successfully",
+      }),
+      {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      }
+    );
+  } catch (error: unknown) {
+    const err = error as { message?: string };
     console.error("Error processing payment webhook:", error);
     return new Response(
-      JSON.stringify({ 
-        error: error?.message || "Webhook processing failed" 
-      }), 
+      JSON.stringify({
+        error: err?.message || "Webhook processing failed",
+      }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 500,
@@ -103,10 +112,3 @@ serve(async (req) => {
     );
   }
 });
-
-
-
-
-
-
-

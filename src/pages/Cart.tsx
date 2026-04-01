@@ -23,8 +23,6 @@ import {
   TabsTrigger
 } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import Header from '@/components/layout/Header';
-import Footer from '@/components/layout/Footer';
 import { useCart } from '@/contexts/CartContext';
 import { useWishlist } from '@/contexts/WishlistContext';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -79,32 +77,25 @@ const Cart: React.FC = () => {
   // Empty state
   if (items.length === 0 && wishlistItems.length === 0) {
     return (
-      <div className="min-h-screen bg-background">
-        <Header />
-        <main className="container mx-auto px-4 py-16 text-center">
-          <ShoppingBag className="h-16 w-16 mx-auto mb-6 text-muted-foreground" />
-          <h1 className="text-3xl font-bold mb-4">
-            {t('cartEmpty')}
-          </h1>
-          <p className="text-muted-foreground mb-8">
-            {t('startShopping')}
-          </p>
-          <Link to="/shop">
-            <Button size="lg" className="gradient-primary">
-              {t('shopNow')}
-            </Button>
-          </Link>
-        </main>
-        <Footer />
-      </div>
+      <main className="container mx-auto px-4 py-16 text-center">
+        <ShoppingBag className="h-16 w-16 mx-auto mb-6 text-muted-foreground" />
+        <h1 className="text-3xl font-bold mb-4">
+          {t('cartEmpty')}
+        </h1>
+        <p className="text-muted-foreground mb-8">
+          {t('startShopping')}
+        </p>
+        <Link to="/shop">
+          <Button size="lg" className="gradient-primary">
+            {t('shopNow')}
+          </Button>
+        </Link>
+      </main>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-
-      <main className="container mx-auto px-4 py-8">
+    <main className="container mx-auto px-4 py-8">
         <h1 className="text-3xl font-bold mb-8">
           {activeTab === 'cart' ? t('cart') : t('wishlist')}
         </h1>
@@ -346,9 +337,6 @@ const Cart: React.FC = () => {
           </TabsContent>
         </Tabs>
       </main>
-
-      <Footer />
-    </div>
   );
 };
 
