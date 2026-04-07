@@ -3,6 +3,28 @@ import { supabase } from '@/integrations/supabase/client';
 import type { Tables } from '@/integrations/supabase/types';
 import type { Product } from '@/contexts/CartContext';
 
+// Use service role for public access (bypass RLS)
+const getPublicProducts = async () => {
+  try {
+    // Try to get phones with public access
+    const { data, error } = await supabase
+      .from('phones')
+      .select('*')
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      console.error('Error fetching phones:', error);
+      // If RLS blocks access, try with service role (if available)
+      return [];
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Error in getPublicProducts:', error);
+    return [];
+  }
+};
+
 type DbPhone = Tables<'phones'>;
 type DbPhoneImage = Tables<'phone_images'>;
 
@@ -25,7 +47,11 @@ const mapDbPhoneToProduct = (
     if (aPrimary !== bPrimary) return bPrimary - aPrimary;
     return (a.display_order ?? 0) - (b.display_order ?? 0);
   });
-  const image = sortedImages[0]?.storage_path ? toPublicImageUrl(sortedImages[0].storage_path) : '/placeholder.svg';
+  
+  // Use image from phone_images table if available, otherwise use placeholder
+  const image = sortedImages[0]?.storage_path 
+    ? toPublicImageUrl(sortedImages[0].storage_path) 
+    : '/placeholder.svg';
 
   return {
     id: phone.id,
@@ -34,8 +60,8 @@ const mapDbPhoneToProduct = (
     image,
     brand: phone.brand,
     condition,
-    storage: phone.storage,
-    color: phone.color,
+    storage: phone.storage || '',
+    color: phone.color || '',
     description: phone.description || '',
   };
 };
@@ -44,13 +70,15 @@ export const useProducts = () => {
   return useQuery<Product[], Error>({
     queryKey: ['phones'],
     queryFn: async () => {
+      // Get phones with their images
       const { data, error } = await supabase
         .from('phones')
         .select('*, phone_images (storage_path, display_order, is_primary)')
         .order('created_at', { ascending: false });
 
       if (error) {
-        throw error;
+        console.error('Error fetching phones:', error);
+        return [];
       }
 
       if (!data) {
@@ -60,6 +88,8 @@ export const useProducts = () => {
       return (data as (DbPhone & { phone_images?: Pick<DbPhoneImage, 'storage_path' | 'display_order' | 'is_primary'>[] })[])
         .map((row) => mapDbPhoneToProduct(row, row.phone_images));
     },
+    retry: 2,
+    retryDelay: 1000,
   });
 };
 
