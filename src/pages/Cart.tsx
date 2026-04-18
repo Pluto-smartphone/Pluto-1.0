@@ -268,7 +268,7 @@ const Cart: React.FC = () => {
                       </span>
                     </div>
 
-                    <Link to="/payment">
+                    <Link to="/payment" state={{ selectedIds }}>
                       <Button
                         className="w-full gradient-primary"
                         disabled={selectedIds.length === 0}

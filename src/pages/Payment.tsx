@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Home, HandCoins, ArrowLeft, CheckCircle } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -12,9 +12,18 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
 const Payment: React.FC = () => {
-  const { items, getCartTotal } = useCart();
+  const { items } = useCart();
   const { t, language } = useLanguage();
   const { toast } = useToast();
+  
+  const location = useLocation();
+  const selectedIds = location.state?.selectedIds || [];
+  
+  const paymentItems = selectedIds.length > 0 
+    ? items.filter((item: any) => selectedIds.includes(item.id)) 
+    : items;
+  
+  const paymentTotal = paymentItems.reduce((sum: number, item: any) => sum + (item.price * item.quantity), 0);
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentComplete, setPaymentComplete] = useState(false);
@@ -111,7 +120,7 @@ const Payment: React.FC = () => {
 
 
   const handlePayment = async () => {
-    if (items.length === 0) {
+    if (paymentItems.length === 0) {
       toast({
         title: language === 'th' ? 'ตะกร้าว่าง' : 'Cart is empty',
         description:
@@ -155,7 +164,7 @@ const Payment: React.FC = () => {
 
       const { data, error } = await supabase.functions.invoke('create-checkout', {
         body: {
-          cartItems: items,
+          cartItems: paymentItems,
           paymentMethod,
           shipping: {
             firstName,
@@ -387,7 +396,7 @@ const Payment: React.FC = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {items.map(item => (
+                {paymentItems.map((item: any) => (
                   <div key={item.id} className="flex justify-between">
                     <span>
                       {item.name} × {item.quantity}
@@ -400,7 +409,7 @@ const Payment: React.FC = () => {
 
                 <div className="flex justify-between font-bold">
                   <span>{t('total')}</span>
-                  <span>{formatPrice(getCartTotal())}</span>
+                  <span>{formatPrice(paymentTotal)}</span>
                 </div>
 
                 <Button
