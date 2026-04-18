@@ -6,18 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { useCart } from '@/contexts/CartContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { thaiAddress, Province } from '@/data/thaiAddress';
 
 const Payment: React.FC = () => {
   const { items, getCartTotal } = useCart();
@@ -27,10 +19,8 @@ const Payment: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentComplete, setPaymentComplete] = useState(false);
   /** stripe = Stripe Checkout (บัตร + PromptPay QR บนหน้า Stripe); อื่นๆ = โหมดแมนนวล */
-  const [paymentMethod, setPaymentMethod] = useState('stripe');
+  const [paymentMethod] = useState('stripe');
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [paymentPageUrl, setPaymentPageUrl] = useState<string | null>(null);
-  const [paymentPageHtml, setPaymentPageHtml] = useState<string | null>(null);
 
   // Shipping form state
   const [firstName, setFirstName] = useState('');
@@ -46,14 +36,6 @@ const Payment: React.FC = () => {
   const [district, setDistrict] = useState('');
   const [province, setProvince] = useState('');
   const [postalCode, setPostalCode] = useState('');
-  // Static dataset indices for cascading selection
-  const [provinceIdx, setProvinceIdx] = useState<number | null>(null);
-  const [districtIdx, setDistrictIdx] = useState<number | null>(null);
-  const [subdistrictIdx, setSubdistrictIdx] = useState<number | null>(null);
-
-  // Receipt upload state
-  const [receiptFile, setReceiptFile] = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false);
   const [saveAddress, setSaveAddress] = useState(true);
 
   const formatPrice = (price: number) =>
@@ -61,90 +43,6 @@ const Payment: React.FC = () => {
       style: 'currency',
       currency: 'THB',
     }).format(price);
-
-  // Address dataset (fallback to sample, then upgrade to full 77 provinces at runtime)
-  const [addressData, setAddressData] = useState<Province[]>(thaiAddress);
-
-  useEffect(() => {
-    const loadFullDataset = async () => {
-      try {
-        // If already cached, use it
-        const cached = localStorage.getItem('thaiAddressFull');
-        if (cached) {
-          setAddressData(JSON.parse(cached));
-          return;
-        }
-        // Load from local static file (no external dependency)
-        const res = await fetch('/thai-address.json', { cache: 'default' });
-        if (res.ok) {
-          const raw = await res.json();
-          let full: Province[] = raw;
-          // If dataset uses name_th keys (kongvut), transform to our structure
-          if (Array.isArray(raw) && raw.length && (raw[0].name_th || raw[0].nameTh)) {
-            if (raw[0].name_th) {
-              full = raw.map((p: any) => ({
-                nameTh: p.name_th,
-                nameEn: p.name_en,
-                districts: (p.amphure || p.district || []).map((d: any) => ({
-                  nameTh: d.name_th,
-                  nameEn: d.name_en,
-                  subdistricts: (d.tambon || d.sub_district || []).map((s: any) => ({
-                    nameTh: s.name_th,
-                    nameEn: s.name_en,
-                    postalCode: String(s.zip_code || s.post_code || ''),
-                  })),
-                })),
-              }));
-            }
-          }
-          localStorage.setItem('thaiAddressFull', JSON.stringify(full));
-          setAddressData(full);
-        }
-      } catch (e) {
-        console.warn('Failed to load local thai-address.json; using sample.', e);
-      }
-    };
-    loadFullDataset();
-  }, []);
-
-  const districts = provinceIdx !== null ? addressData[provinceIdx].districts : [];
-  const subdistricts = provinceIdx !== null && districtIdx !== null
-    ? addressData[provinceIdx].districts[districtIdx].subdistricts
-    : [];
-
-  // Global options when not yet narrowed
-  const allDistrictOptions = addressData.flatMap((p, pIdx) =>
-    p.districts.map((d, dIdx) => ({ pIdx, dIdx, label: `${d.nameTh} (${p.nameTh})`, nameTh: d.nameTh }))
-  );
-  const allSubdistrictOptions = addressData.flatMap((p, pIdx) =>
-    p.districts.flatMap((d, dIdx) =>
-      d.subdistricts.map((s, sIdx) => ({ pIdx, dIdx, sIdx, label: `${s.nameTh} (${d.nameTh}, ${p.nameTh})`, nameTh: s.nameTh, postalCode: s.postalCode }))
-    )
-  );
-
-  // After dataset updates, try to remap indices using current string values
-  useEffect(() => {
-    if (!addressData || addressData.length === 0) return;
-    // Province index
-    if (province && provinceIdx === null) {
-      const pIdx = addressData.findIndex(p => p.nameTh === province);
-      if (pIdx >= 0) setProvinceIdx(pIdx);
-    }
-    // District index
-    if (provinceIdx !== null && district && districtIdx === null) {
-      const dIdx = addressData[provinceIdx].districts.findIndex(d => d.nameTh === district);
-      if (dIdx >= 0) setDistrictIdx(dIdx);
-    }
-    // Subdistrict index and postalCode
-    if (provinceIdx !== null && districtIdx !== null && subdistrict && subdistrictIdx === null) {
-      const sIdx = addressData[provinceIdx].districts[districtIdx].subdistricts.findIndex(s => s.nameTh === subdistrict);
-      if (sIdx >= 0) {
-        setSubdistrictIdx(sIdx);
-        const code = addressData[provinceIdx].districts[districtIdx].subdistricts[sIdx].postalCode;
-        if (code) setPostalCode(code);
-      }
-    }
-  }, [addressData]);
 
   // Load default address from user profile (address book)
   useEffect(() => {
@@ -167,17 +65,7 @@ const Payment: React.FC = () => {
           setDistrict(addr.district || '');
           setSubdistrict(addr.subdistrict || '');
           setPostalCode(addr.postalCode || '');
-          // Try to map to indices
-          const pIdx = addressData.findIndex(p => p.nameTh === addr.province);
-          if (pIdx >= 0) setProvinceIdx(pIdx);
-          if (pIdx >= 0 && addr.district) {
-            const dIdx = addressData[pIdx].districts.findIndex(d => d.nameTh === addr.district);
-            if (dIdx >= 0) setDistrictIdx(dIdx);
-            if (dIdx >= 0 && addr.subdistrict) {
-              const sIdx = addressData[pIdx].districts[dIdx].subdistricts.findIndex(s => s.nameTh === addr.subdistrict);
-              if (sIdx >= 0) setSubdistrictIdx(sIdx);
-            }
-          }
+
         }
       } catch (e) {
         // ignore
@@ -220,23 +108,7 @@ const Payment: React.FC = () => {
     return true;
   };
 
-  const uploadReceipt = async () => {
-    if (!sessionId || !receiptFile) return;
-    try {
-      setUploading(true);
-      const path = `receipts/${sessionId}/${Date.now()}_${receiptFile.name}`;
-      const { error } = await supabase.storage.from('payment-slips').upload(path, receiptFile, {
-        cacheControl: '3600',
-        upsert: false,
-      });
-      if (error) throw error;
-      toast({ title: language === 'th' ? 'อัปโหลดสลิปสำเร็จ' : 'Receipt uploaded', variant: 'default' });
-    } catch (err: any) {
-      toast({ title: language === 'th' ? 'อัปโหลดสลิปล้มเหลว' : 'Upload failed', description: err.message, variant: 'destructive' });
-    } finally {
-      setUploading(false);
-    }
-  };
+
 
   const handlePayment = async () => {
     if (items.length === 0) {
@@ -337,8 +209,6 @@ const Payment: React.FC = () => {
         window.location.assign(checkoutUrl);
         return;
       }
-      if (checkoutUrl) setPaymentPageUrl(checkoutUrl);
-      if (data?.html) setPaymentPageHtml(data.html as string);
     } catch (err: any) {
       toast({
         title: language === 'th' ? 'เกิดข้อผิดพลาด' : 'Error',
@@ -452,132 +322,25 @@ const Payment: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Province first, then District/Subdistrict */}
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label>{language === 'th' ? 'จังหวัด' : 'Province'}</Label>
-                      <Select
-                        value={provinceIdx !== null ? String(provinceIdx) : ''}
-                        onValueChange={(val) => {
-                          const idx = val === '' ? null : parseInt(val, 10);
-                          setProvinceIdx(idx);
-                          const name = idx !== null ? addressData[idx].nameTh : '';
-                          setProvince(name);
-                          // Reset lower levels
-                          setDistrictIdx(null);
-                          setDistrict('');
-                          setSubdistrictIdx(null);
-                          setSubdistrict('');
-                          setPostalCode('');
-                        }}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder={language === 'th' ? 'เลือกจังหวัด' : 'Select Province'} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {addressData.map((p, idx) => (
-                            <SelectItem key={p.nameTh + idx} value={String(idx)}>
-                              {p.nameTh}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <Input value={province} onChange={(e) => setProvince(e.target.value)} />
                     </div>
                     <div>
-                      <Label>{language === 'th' ? 'รหัสไปรษณีย์' : 'Postal Code'}</Label>
-                      <Input value={postalCode} onChange={(e) => setPostalCode(e.target.value)} />
+                      <Label>{language === 'th' ? 'อำเภอ/เขต' : 'District'}</Label>
+                      <Input value={district} onChange={(e) => setDistrict(e.target.value)} />
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <Label>{language === 'th' ? 'อำเภอ/เขต' : 'District'}</Label>
-                      <Select
-                        value={provinceIdx !== null && districtIdx !== null ? String(districtIdx) : ''}
-                        onValueChange={(val) => {
-                          if (val.includes(':')) {
-                            const [pStr, dStr] = val.split(':');
-                            const pI = parseInt(pStr, 10);
-                            const dI = parseInt(dStr, 10);
-                            setProvinceIdx(pI);
-                            setDistrictIdx(dI);
-                            setProvince(addressData[pI]?.nameTh || '');
-                            setDistrict(addressData[pI]?.districts[dI]?.nameTh || '');
-                          } else {
-                            const idx = val === '' ? null : parseInt(val, 10);
-                            setDistrictIdx(idx);
-                            const name = idx !== null ? districts[idx].nameTh : '';
-                            setDistrict(name);
-                          }
-                          // Reset subdistrict when district changes
-                          setSubdistrictIdx(null);
-                          setSubdistrict('');
-                          setPostalCode('');
-                        }}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder={language === 'th' ? 'เลือกอำเภอ/เขต' : 'Select District'} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {provinceIdx === null
-                            ? allDistrictOptions.map((opt) => (
-                                <SelectItem key={`${opt.pIdx}:${opt.dIdx}`} value={`${opt.pIdx}:${opt.dIdx}`}>
-                                  {opt.label}
-                                </SelectItem>
-                              ))
-                            : districts.map((d, idx) => (
-                                <SelectItem key={d.nameTh + idx} value={String(idx)}>
-                                  {d.nameTh}
-                                </SelectItem>
-                              ))}
-                        </SelectContent>
-                      </Select>
+                      <Label>{language === 'th' ? 'ตำบล/แขวง' : 'Subdistrict'}</Label>
+                      <Input value={subdistrict} onChange={(e) => setSubdistrict(e.target.value)} />
                     </div>
                     <div>
-                      <Label>{language === 'th' ? 'ตำบล/แขวง' : 'Subdistrict'}</Label>
-                      <Select
-                        value={provinceIdx !== null && districtIdx !== null && subdistrictIdx !== null ? String(subdistrictIdx) : ''}
-                        onValueChange={(val) => {
-                          if (val.includes(':')) {
-                            const [pStr, dStr, sStr] = val.split(':');
-                            const pI = parseInt(pStr, 10);
-                            const dI = parseInt(dStr, 10);
-                            const sI = parseInt(sStr, 10);
-                            setProvinceIdx(pI);
-                            setDistrictIdx(dI);
-                            setSubdistrictIdx(sI);
-                            setProvince(addressData[pI]?.nameTh || '');
-                            setDistrict(addressData[pI]?.districts[dI]?.nameTh || '');
-                            const sub = addressData[pI]?.districts[dI]?.subdistricts[sI];
-                            setSubdistrict(sub?.nameTh || '');
-                            setPostalCode(sub?.postalCode || '');
-                          } else {
-                            const idx = val === '' ? null : parseInt(val, 10);
-                            setSubdistrictIdx(idx);
-                            const name = idx !== null ? subdistricts[idx].nameTh : '';
-                            setSubdistrict(name);
-                            const code = idx !== null ? subdistricts[idx].postalCode : '';
-                            setPostalCode(code);
-                          }
-                        }}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder={language === 'th' ? 'เลือกตำบล/แขวง' : 'Select Subdistrict'} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {provinceIdx === null || districtIdx === null
-                            ? allSubdistrictOptions.map((opt) => (
-                                <SelectItem key={`${opt.pIdx}:${opt.dIdx}:${opt.sIdx}`} value={`${opt.pIdx}:${opt.dIdx}:${opt.sIdx}`}>
-                                  {opt.label}
-                                </SelectItem>
-                              ))
-                            : subdistricts.map((s, idx) => (
-                                <SelectItem key={s.nameTh + idx} value={String(idx)}>
-                                  {s.nameTh}
-                                </SelectItem>
-                              ))}
-                        </SelectContent>
-                      </Select>
+                      <Label>{language === 'th' ? 'รหัสไปรษณีย์' : 'Postal Code'}</Label>
+                      <Input value={postalCode} onChange={(e) => setPostalCode(e.target.value)} />
                     </div>
                   </div>
 
@@ -601,98 +364,17 @@ const Payment: React.FC = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="stripe">
-                        {language === 'th'
-                          ? 'Stripe — บัตร / PromptPay QR'
-                          : 'Stripe — Card / PromptPay QR'}
-                      </SelectItem>
-                      <SelectItem value="promptpay">
-                        {language === 'th' ? 'พร้อมเพย์ (แมนนวล)' : 'PromptPay (manual page)'}
-                      </SelectItem>
-                      <SelectItem value="bank-transfer">
-                        {language === 'th'
-                          ? 'โอนเงินผ่านธนาคาร (แมนนวล)'
-                          : 'Bank transfer (manual)'}
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-
-                  {paymentMethod === 'stripe' && (
-                    <p className="text-sm text-muted-foreground">
-                      {language === 'th'
-                        ? 'จะไปยังหน้าชำระเงินปลอดภัยของ Stripe เพื่อเลือกบัตรเครดิต/เดบิตหรือสแกน PromptPay QR'
-                        : 'You will be redirected to secure Stripe Checkout to pay by card or PromptPay QR.'}
-                    </p>
-                  )}
-
-                  {/* Bank information note */}
-                  {paymentMethod === 'bank-transfer' && (
-                    <div className="text-sm text-muted-foreground">
-                      {language === 'th'
-                        ? 'โอนเงินไปยังบัญชีที่จะแสดงในหน้าชำระเงิน และแนบสลิปหลังโอน'
-                        : 'Transfer to the bank account shown on the payment page and upload the receipt.'}
-                    </div>
-                  )}
+                  <p className="text-sm text-muted-foreground">
+                    {language === 'th'
+                      ? 'จะไปยังหน้าชำระเงินปลอดภัยของ Stripe เพื่อเลือกบัตรเครดิต/เดบิตหรือสแกน PromptPay QR'
+                      : 'You will be redirected to secure Stripe Checkout to pay by card or PromptPay QR.'}
+                  </p>
                 </CardContent>
               </Card>
 
-              {/* Receipt Upload */}
-              {sessionId && paymentMethod !== 'stripe' && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>
-                      {language === 'th' ? 'แนบสลิปการโอนเงิน' : 'Upload Transfer Receipt'}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <Input type="file" accept="image/*,application/pdf" onChange={(e) => setReceiptFile(e.target.files?.[0] || null)} />
-                    <Button disabled={!receiptFile || uploading} onClick={uploadReceipt}>
-                      {uploading ? (language === 'th' ? 'กำลังอัปโหลด...' : 'Uploading...') : (language === 'th' ? 'อัปโหลดสลิป' : 'Upload Receipt')}
-                    </Button>
-                    <div className="text-xs text-muted-foreground">
-                      {language === 'th' ? 'หมายเหตุ: ระบบจะบันทึกสลิปตามหมายเลขอ้างอิงคำสั่งซื้อของคุณ' : 'Note: Receipt will be saved under your order reference.'}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
 
-              {/* Inline Payment Page (QR/Bank details) */}
-              {paymentPageUrl && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>
-                      {language === 'th' ? 'สแกน QR / ข้อมูลบัญชี' : 'Scan QR / Bank Details'}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {paymentPageHtml ? (
-                      <iframe
-                        srcDoc={paymentPageHtml}
-                        title="Payment"
-                        className="w-full rounded-md border"
-                        style={{ height: 700 }}
-                      />
-                    ) : (
-                      <iframe
-                        src={paymentPageUrl}
-                        title="Payment"
-                        className="w-full rounded-md border"
-                        style={{ height: 700 }}
-                      />
-                    )}
-                    <div className="text-xs text-muted-foreground mt-2">
-                      {language === 'th'
-                        ? 'หากไม่แสดง กรุณาเลื่อนลงมา หรือเปิดด้วยเบราว์เซอร์ตัวเต็ม'
-                        : 'If it does not display, scroll down or open in a full browser.'}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
+
+
             </div>
 
             {/* RIGHT */}
