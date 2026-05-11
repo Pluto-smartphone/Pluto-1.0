@@ -177,6 +177,77 @@ export type Database = {
         }
         Relationships: []
       }
+      orders: {
+        Row: {
+          id: string
+          user_id: string | null
+          provider: string
+          checkout_session_id: string
+          payment_intent_id: string | null
+          status: string
+          payment_status: string | null
+          currency: string
+          amount_total: number | null
+          customer_email: string | null
+          customer_name: string | null
+          items: Json
+          shipping: Json | null
+          metadata: Json | null
+          invoice_email: string | null
+          invoice_sent_at: string | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id?: string | null
+          provider?: string
+          checkout_session_id: string
+          payment_intent_id?: string | null
+          status?: string
+          payment_status?: string | null
+          currency?: string
+          amount_total?: number | null
+          customer_email?: string | null
+          customer_name?: string | null
+          items?: Json
+          shipping?: Json | null
+          metadata?: Json | null
+          invoice_email?: string | null
+          invoice_sent_at?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string | null
+          provider?: string
+          checkout_session_id?: string
+          payment_intent_id?: string | null
+          status?: string
+          payment_status?: string | null
+          currency?: string
+          amount_total?: number | null
+          customer_email?: string | null
+          customer_name?: string | null
+          items?: Json
+          shipping?: Json | null
+          metadata?: Json | null
+          invoice_email?: string | null
+          invoice_sent_at?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

@@ -100,7 +100,25 @@ const translations = {
     orderNumber: 'Order Number',
     continueShoppingBtn: 'Continue Shopping',
     goHome: 'Go to Home',
-    
+    paymentHistoryTitle: 'Payment history',
+    paymentHistorySubtitle: 'Your recent Stripe checkouts',
+    paymentHistoryEmpty: 'No payments yet.',
+    paymentHistoryDate: 'Date',
+    paymentHistorySession: 'Checkout session',
+    paymentHistoryStatus: 'Status',
+    paymentHistoryEmail: 'Invoice email',
+    paymentHistoryLoginHint: 'Sign in to see your payment history.',
+    paymentPendingTitle: 'Waiting for payment',
+    waitingPromptPay:
+      'If you chose PromptPay, complete the transfer in your banking app. This page refreshes automatically.',
+    invoiceEmailSent: 'Sent',
+    invoiceEmailNote:
+      'A receipt email is sent automatically when Stripe confirms payment (if email is configured).',
+    paymentStatusPaid: 'Paid',
+    paymentStatusPending: 'Pending',
+    paymentStatusFailed: 'Failed',
+    paymentStatusCanceled: 'Canceled',
+
     // Common
     search: 'Search',
     filter: 'Filter',
@@ -256,7 +274,25 @@ const translations = {
     orderNumber: 'หมายเลขคำสั่งซื้อ',
     continueShoppingBtn: 'ช็อปต่อ',
     goHome: 'ไปหน้าแรก',
-    
+    paymentHistoryTitle: 'ประวัติการชำระเงิน',
+    paymentHistorySubtitle: 'รายการชำระเงินผ่าน Stripe ของคุณ',
+    paymentHistoryEmpty: 'ยังไม่มีประวัติการชำระเงิน',
+    paymentHistoryDate: 'วันที่',
+    paymentHistorySession: 'Checkout session',
+    paymentHistoryStatus: 'สถานะ',
+    paymentHistoryEmail: 'อีเมลใบแจ้งหนี้',
+    paymentHistoryLoginHint: 'เข้าสู่ระบบเพื่อดูประวัติการชำระเงิน',
+    paymentPendingTitle: 'กำลังรอการชำระเงิน',
+    waitingPromptPay:
+      'หากเลือก PromptPay ให้โอนผ่านแอปธนาคาร หน้านี้อัปเดตเมื่อได้รับยืนยันจาก Stripe',
+    invoiceEmailSent: 'ส่งแล้ว',
+    invoiceEmailNote:
+      'เมลใบแจ้งหนี้จะถูกส่งอัตโนมัติเมื่อ Stripe ยืนยันการชำระเงิน (เมื่อตั้งค่าอีเมลแล้ว)',
+    paymentStatusPaid: 'ชำระแล้ว',
+    paymentStatusPending: 'รอชำระ',
+    paymentStatusFailed: 'ไม่สำเร็จ',
+    paymentStatusCanceled: 'ยกเลิก',
+
     // Common
     search: 'ค้นหา',
     filter: 'กรอง',

@@ -28,6 +28,11 @@ export interface CheckoutSession {
 export interface PaymentVerificationResult {
   verified: boolean;
   amount?: number;
+  /** Stripe Checkout.Session.payment_status */
+  paymentStatus?: string;
+  /** Stripe Checkout.Session.status (open | complete | expired) */
+  checkoutStatus?: string;
+  /** @deprecated use paymentStatus / checkoutStatus */
   status?: string;
   customerEmail?: string;
   error?: string;

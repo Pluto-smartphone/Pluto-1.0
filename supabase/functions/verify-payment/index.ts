@@ -32,6 +32,8 @@ serve(async (req) => {
     return new Response(JSON.stringify({
       verified: result.verified,
       amount: result.amount,
+      payment_status: result.paymentStatus ?? result.status,
+      checkout_status: result.checkoutStatus,
       status: result.status,
       customerEmail: result.customerEmail,
       error: result.error,

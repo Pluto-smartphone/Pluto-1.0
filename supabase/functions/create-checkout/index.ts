@@ -12,10 +12,12 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  const supabaseClient = createClient(
-    Deno.env.get("SUPABASE_URL") ?? "",
-    Deno.env.get("SUPABASE_ANON_KEY") ?? ""
-  );
+  const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+  const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+  const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+
+  const supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
+  const supabaseServiceClient = createClient(supabaseUrl, supabaseServiceRoleKey);
 
   try {
     const { cartItems, paymentMethod = 'promptpay', shipping } = await req.json();
@@ -74,7 +76,6 @@ serve(async (req) => {
     const origin = req.headers.get("origin") || req.headers.get("referer") || "http://localhost:3000";
     
     // Get Supabase URL for webhook
-    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
     const postbackUrl = `${supabaseUrl}/functions/v1/payment-webhook`;
 
     // Create checkout session using payment provider
@@ -113,6 +114,32 @@ serve(async (req) => {
     });
 
     console.log("Checkout session created:", session.id);
+
+    // Persist order in DB (service role; never trust client-side success redirect alone)
+    try {
+      await supabaseServiceClient.from("orders").insert({
+        user_id: user?.id ?? null,
+        provider: "stripe",
+        checkout_session_id: session.id,
+        status: "created",
+        currency: "thb",
+        amount_total: Number(totalAmount.toFixed(2)),
+        customer_email: customerEmail ?? null,
+        customer_name: (user?.user_metadata?.full_name as string | undefined) || null,
+        items: lineItems.map((li) => ({
+          name: li.name,
+          quantity: li.quantity,
+          amount: li.amount,
+        })),
+        shipping: shipping ?? null,
+        metadata: {
+          payment_method: paymentMethod,
+        },
+      });
+    } catch (e) {
+      console.error("Failed to persist order:", e);
+      // Do not block checkout if persistence fails; webhook can still reconstruct minimal info.
+    }
 
     return new Response(JSON.stringify({ url: session.url, sessionId: session.id, html: session.html }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

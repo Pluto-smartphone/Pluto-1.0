@@ -117,6 +117,11 @@ const Header: React.FC = () => {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem asChild>
+                    <Link to="/payment-history" className="cursor-pointer">
+                      {t('paymentHistoryTitle')}
+                    </Link>
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={signOut} className="cursor-pointer">
                     <LogOut className="h-4 w-4 mr-2" />
                     Sign Out
@@ -216,6 +221,11 @@ const Header: React.FC = () => {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuItem asChild>
+                      <Link to="/payment-history" className="cursor-pointer">
+                        {t('paymentHistoryTitle')}
+                      </Link>
+                    </DropdownMenuItem>
                     <DropdownMenuItem onClick={signOut} className="cursor-pointer">
                       <LogOut className="h-4 w-4 mr-2" />
                       Sign Out

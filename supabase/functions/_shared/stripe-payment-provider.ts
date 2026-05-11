@@ -77,11 +77,14 @@ export class StripePaymentProvider implements PaymentProvider {
       expand: ["payment_intent"],
     });
 
-    const paid = session.payment_status === "paid";
+    const paid =
+      session.payment_status === "paid" || session.payment_status === "no_payment_required";
 
     return {
       verified: paid,
       amount: session.amount_total != null ? session.amount_total / 100 : undefined,
+      paymentStatus: session.payment_status ?? undefined,
+      checkoutStatus: session.status ?? undefined,
       status: session.payment_status ?? session.status,
       customerEmail: session.customer_details?.email ?? session.customer_email ?? undefined,
       error: paid ? undefined : "Payment not completed",

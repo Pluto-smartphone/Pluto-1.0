@@ -26,6 +26,7 @@ import Cart from "./pages/Cart";
 import Payment from "./pages/Payment";
 
 import PaymentSuccess from "./pages/PaymentSuccess";
+import PaymentHistory from "./pages/PaymentHistory";
 
 import About from "./pages/About";
 
@@ -78,6 +79,7 @@ const App = () => (
                   <Route path="/payment" element={<Payment />} />
 
                   <Route path="/payment-success" element={<PaymentSuccess />} />
+                  <Route path="/payment-history" element={<PaymentHistory />} />
 
                   <Route path="/about" element={<About />} />
 
