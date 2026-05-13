@@ -120,7 +120,13 @@ export function generateInvoiceHTML(params: {
 </html>`;
 }
 
-export async function sendEmail(params: { to: string; subject: string; html: string }) {
+export async function sendEmail(params: {
+  to: string;
+  subject: string;
+  html: string;
+  /** Resend: reply-to address (visitor email for contact forms) */
+  replyTo?: string;
+}) {
   const resendApiKey = Deno.env.get("RESEND_API_KEY")?.trim();
 
   if (!resendApiKey) {
@@ -128,18 +134,22 @@ export async function sendEmail(params: { to: string; subject: string; html: str
     return { success: false, message: "Email service not configured" };
   }
 
+  const payload: Record<string, unknown> = {
+    from: Deno.env.get("RESEND_FROM")?.trim() || "Pluto Store <onboarding@resend.dev>",
+    to: params.to,
+    subject: params.subject,
+    html: params.html,
+  };
+  const reply = params.replyTo?.trim();
+  if (reply) payload.reply_to = [reply];
+
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${resendApiKey}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      from: Deno.env.get("RESEND_FROM")?.trim() || "Pluto Store <onboarding@resend.dev>",
-      to: params.to,
-      subject: params.subject,
-      html: params.html,
-    }),
+    body: JSON.stringify(payload),
   });
 
   if (!response.ok) {

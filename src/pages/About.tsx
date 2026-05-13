@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Shield, Award, Users, Smartphone, Mail, Phone, MapPin, Clock, Send, MessageCircle } from 'lucide-react';
+import { Shield, Award, Users, Smartphone, Mail, MapPin, Clock, Send, MessageCircle, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,9 +7,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 const About: React.FC = () => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const { toast } = useToast();
+  const [isSending, setIsSending] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -17,10 +21,54 @@ const About: React.FC = () => {
     message: ''
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Form submitted:', formData);
-    alert(t('language') === 'th' ? 'ส่งข้อความเรียบร้อยแล้ว!' : 'Message sent successfully!');
+    if (!formData.subject) {
+      toast({
+        title: language === 'th' ? 'เลือกหัวข้อ' : 'Select a subject',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsSending(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-contact', {
+        body: {
+          name: formData.name,
+          email: formData.email,
+          subject: formData.subject,
+          message: formData.message,
+        },
+      });
+
+      if (error) {
+        const msg = (data as { error?: string })?.error || error.message;
+        throw new Error(msg);
+      }
+
+      if ((data as { error?: string })?.error) {
+        throw new Error((data as { error: string }).error);
+      }
+
+      toast({
+        title: language === 'th' ? 'ส่งข้อความเรียบร้อยแล้ว' : 'Message sent',
+        description:
+          language === 'th'
+            ? 'เราได้รับข้อความของคุณแล้ว จะติดต่อกลับทางอีเมล'
+            : 'We received your message and will reply by email.',
+      });
+      setFormData({ name: '', email: '', subject: '', message: '' });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      toast({
+        title: language === 'th' ? 'ส่งไม่สำเร็จ' : 'Could not send',
+        description: message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSending(false);
+    }
   };
 
   const handleInputChange = (field: string, value: string) => {
@@ -30,29 +78,29 @@ const About: React.FC = () => {
   const features = [
     {
       icon: Shield,
-      title: t('language') === 'th' ? 'การรับประกันคุณภาพ' : t('qualityGuarantee'),
-      description: t('language') === 'th' 
+      title: language === 'th' ? 'การรับประกันคุณภาพ' : t('qualityGuarantee'),
+      description: language === 'th' 
         ? 'สินค้าทุกชิ้นผ่านการตรวจสอบคุณภาพอย่างเข้มงวดและมาพร้อมการรับประกัน'
         : t('qualityDesc')
     },
     {
       icon: Award,
-      title: t('language') === 'th' ? 'ผู้เชี่ยวชาญด้านเทคโนโลยี' : t('technologyExperts'),
-      description: t('language') === 'th'
+      title: language === 'th' ? 'ผู้เชี่ยวชาญด้านเทคโนโลยี' : t('technologyExperts'),
+      description: language === 'th'
         ? 'ทีมงานผู้เชี่ยวชาญพร้อมให้คำปรึกษาและช่วยเหลือในการเลือกสินค้า'
         : t('expertsDesc')
     },
     {
       icon: Users,
-      title: t('language') === 'th' ? 'ชุมชนผู้ใช้งาน' : t('userCommunity'),
-      description: t('language') === 'th'
+      title: language === 'th' ? 'ชุมชนผู้ใช้งาน' : t('userCommunity'),
+      description: language === 'th'
         ? 'ชุมชนผู้ใช้งานขนาดใหญ่ที่พร้อมแบ่งปันประสบการณ์และให้คำแนะนำ'
         : t('communityDesc')
     },
     {
       icon: Smartphone,
-      title: t('language') === 'th' ? 'สินค้าหลากหลาย' : t('diverseProducts'),
-      description: t('language') === 'th'
+      title: language === 'th' ? 'สินค้าหลากหลาย' : t('diverseProducts'),
+      description: language === 'th'
         ? 'มีสมาร์ทโฟนให้เลือกมากมายจากทุกแบรนด์ดัง ทั้งใหม่และมือสอง'
         : t('diverseDesc')
     }
@@ -169,7 +217,7 @@ const About: React.FC = () => {
               {t('contact')}
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              {t('language') === 'th'
+              {language === 'th'
                 ? 'มีคำถามหรือต้องการความช่วยเหลือ? ทีมงานของเราพร้อมให้บริการคุณ'
                 : 'Have questions or need assistance? Our team is ready to help you.'
               }
@@ -189,19 +237,19 @@ const About: React.FC = () => {
                       icon: Mail,
                       title: t('emailSell'),
                       content: 'pluto.th.business@gmail.com',
-                      description: t('language') === 'th' ? 'ตอบกลับภายใน 24 ชั่วโมง' : 'Reply within 24 hours'
+                      description: language === 'th' ? 'ตอบกลับภายใน 24 ชั่วโมง' : 'Reply within 24 hours'
                     },
                     {
                       icon: MapPin,
                       title: t('addressAbout'),
-                      content: t('language') === 'th' ? 'กรุงเทพมหานคร ประเทศไทย' : 'Bangkok, Thailand',
-                      description: t('language') === 'th' ? 'สำนักงานใหญ่' : 'Head Office'
+                      content: language === 'th' ? 'กรุงเทพมหานคร ประเทศไทย' : 'Bangkok, Thailand',
+                      description: language === 'th' ? 'สำนักงานใหญ่' : 'Head Office'
                     },
                     {
                       icon: Clock,
                       title: t('businessHours'),
-                      content: t('language') === 'th' ? 'จันทร์-ศุกร์ 9:00-18:00' : 'Mon-Fri 9:00-18:00',
-                      description: t('language') === 'th' ? 'เสาร์-อาทิตย์ 10:00-16:00' : 'Sat-Sun 10:00-16:00'
+                      content: language === 'th' ? 'จันทร์-ศุกร์ 9:00-18:00' : 'Mon-Fri 9:00-18:00',
+                      description: language === 'th' ? 'เสาร์-อาทิตย์ 10:00-16:00' : 'Sat-Sun 10:00-16:00'
                     }
                   ].map((info, index) => (
                     <Card key={index} className="hover-lift min-w-0" style={{ animationDelay: `${index * 0.1}s` }}>
@@ -287,7 +335,7 @@ const About: React.FC = () => {
                           id="name"
                           value={formData.name}
                           onChange={(e) => handleInputChange('name', e.target.value)}
-                          placeholder={t('language') === 'th' ? 'กรอกชื่อ-นามสกุล' : 'Enter your full name'}
+                          placeholder={language === 'th' ? 'กรอกชื่อ-นามสกุล' : 'Enter your full name'}
                           required
                         />
                       </div>
@@ -300,7 +348,7 @@ const About: React.FC = () => {
                           type="email"
                           value={formData.email}
                           onChange={(e) => handleInputChange('email', e.target.value)}
-                          placeholder={t('language') === 'th' ? 'กรอกอีเมล' : 'Enter your email'}
+                          placeholder={language === 'th' ? 'กรอกอีเมล' : 'Enter your email'}
                           required
                         />
                       </div>
@@ -312,23 +360,23 @@ const About: React.FC = () => {
                         </Label>
                       <Select value={formData.subject} onValueChange={(value) => handleInputChange('subject', value)}>
                         <SelectTrigger>
-                          <SelectValue placeholder={t('language') === 'th' ? 'เลือกหัวข้อ' : 'Select a subject'} />
+                          <SelectValue placeholder={language === 'th' ? 'เลือกหัวข้อ' : 'Select a subject'} />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="general">
-                            {t('language') === 'th' ? 'สอบถามทั่วไป' : 'General Inquiry'}
+                            {language === 'th' ? 'สอบถามทั่วไป' : 'General Inquiry'}
                           </SelectItem>
                           <SelectItem value="support">
-                            {t('language') === 'th' ? 'ขอความช่วยเหลือ' : 'Technical Support'}
+                            {language === 'th' ? 'ขอความช่วยเหลือ' : 'Technical Support'}
                           </SelectItem>
                           <SelectItem value="order">
-                            {t('language') === 'th' ? 'สถานะคำสั่งซื้อ' : 'Order Status'}
+                            {language === 'th' ? 'สถานะคำสั่งซื้อ' : 'Order Status'}
                           </SelectItem>
                           <SelectItem value="return">
-                            {t('language') === 'th' ? 'การคืนสินค้า' : 'Product Return'}
+                            {language === 'th' ? 'การคืนสินค้า' : 'Product Return'}
                           </SelectItem>
                           <SelectItem value="partnership">
-                            {t('language') === 'th' ? 'ความร่วมมือ' : 'Partnership'}
+                            {language === 'th' ? 'ความร่วมมือ' : 'Partnership'}
                           </SelectItem>
                         </SelectContent>
                       </Select>
@@ -342,15 +390,19 @@ const About: React.FC = () => {
                         id="message"
                         value={formData.message}
                         onChange={(e) => handleInputChange('message', e.target.value)}
-                        placeholder={t('language') === 'th' ? 'กรอกข้อความของคุณ...' : 'Enter your message...'}
+                        placeholder={language === 'th' ? 'กรอกข้อความของคุณ...' : 'Enter your message...'}
                         rows={5}
                         required
                       />
                     </div>
 
-                    <Button type="submit" size="lg" className="w-full gradient-primary shadow-red">
-                      <Send className="h-4 w-4 mr-2" />
-                      {t('language') === 'th' ? 'ส่งข้อความ' : 'Send Message'}
+                    <Button type="submit" size="lg" className="w-full gradient-primary shadow-red" disabled={isSending}>
+                      {isSending ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Send className="h-4 w-4 mr-2" />
+                      )}
+                      {language === 'th' ? 'ส่งข้อความ' : 'Send Message'}
                     </Button>
                   </form>
                 </CardContent>
@@ -366,10 +418,10 @@ const About: React.FC = () => {
                   <div className="text-center">
                     <MapPin className="h-12 w-12 text-primary mx-auto mb-4" />
                     <h4 className="text-lg font-semibold text-foreground mb-2">
-                      {t('language') === 'th' ? 'แผนที่สำนักงาน' : 'Office Location'}
+                      {language === 'th' ? 'แผนที่สำนักงาน' : 'Office Location'}
                     </h4>
                     <p className="text-muted-foreground">
-                      {t('language') === 'th' ? 'กรุงเทพมหานคร ประเทศไทย' : 'Bangkok, Thailand'}
+                      {language === 'th' ? 'กรุงเทพมหานคร ประเทศไทย' : 'Bangkok, Thailand'}
                     </p>
                   </div>
                 </div>
