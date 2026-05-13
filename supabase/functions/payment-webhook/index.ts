@@ -8,6 +8,32 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, stripe-signature",
 };
 
+function userIdFromStripeMetadata(meta: Stripe.Metadata | null | undefined): string | null {
+  const raw = meta?.user_id;
+  if (typeof raw !== "string" || raw === "guest") return null;
+  const re = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  return re.test(raw) ? raw : null;
+}
+
+function shippingFromStripeMeta(meta: Stripe.Metadata): Record<string, unknown> | null {
+  if (!meta.ship_email && !meta.ship_firstName && !meta.ship_lastName) return null;
+  return {
+    firstName: meta.ship_firstName ?? "",
+    lastName: meta.ship_lastName ?? "",
+    email: meta.ship_email ?? "",
+    phone: meta.ship_phone ?? "",
+    houseNo: meta.ship_houseNo ?? "",
+    building: meta.ship_building ?? "",
+    moo: meta.ship_moo ?? "",
+    soi: meta.ship_soi ?? "",
+    road: meta.ship_road ?? "",
+    subdistrict: meta.ship_subdistrict ?? "",
+    district: meta.ship_district ?? "",
+    province: meta.ship_province ?? "",
+    postalCode: meta.ship_postalCode ?? "",
+  };
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -60,7 +86,7 @@ serve(async (req) => {
         })();
 
         // Update order row (if exists)
-        const { data: orderRow } = await supabaseAdmin
+        const { data: updatedRow } = await supabaseAdmin
           .from("orders")
           .update({
             status: computedStatus,
@@ -76,6 +102,75 @@ serve(async (req) => {
           .eq("checkout_session_id", session.id)
           .select("*")
           .maybeSingle();
+
+        let orderRow = updatedRow;
+
+        // create-checkout insert may have failed — create row from Stripe so history + invoice work
+        if (!orderRow) {
+          console.log("No orders row for checkout session; upserting from Stripe:", session.id);
+          const fullSession = await stripe.checkout.sessions.retrieve(session.id, {
+            expand: ["line_items.data.price.product"],
+          });
+          const lines = fullSession.line_items?.data ?? [];
+          const items: InvoiceItem[] = lines.map((li) => {
+            const qty = li.quantity ?? 1;
+            const total = li.amount_total ?? 0;
+            return {
+              name: (li.description || "Item").slice(0, 500),
+              quantity: qty,
+              amount: qty > 0 ? Math.round(total / qty) : total,
+            };
+          });
+          const meta = fullSession.metadata ?? {};
+          let userIdForRow = userIdFromStripeMetadata(meta);
+          const customerEmail =
+            fullSession.customer_details?.email ?? fullSession.customer_email ?? null;
+          const customerName = fullSession.customer_details?.name ?? meta.customerName ?? null;
+          const shipping = shippingFromStripeMeta(meta);
+
+          const insertPayload = {
+            user_id: userIdForRow,
+            provider: "stripe",
+            checkout_session_id: fullSession.id,
+            payment_intent_id: paymentIntentId,
+            status: computedStatus,
+            payment_status: fullSession.payment_status ?? null,
+            amount_total: fullSession.amount_total != null ? fullSession.amount_total / 100 : null,
+            currency: fullSession.currency ?? "thb",
+            customer_email: customerEmail,
+            customer_name: typeof customerName === "string" ? customerName : null,
+            items: items.length > 0 ? items : [],
+            shipping,
+            metadata: { ...meta, payment_method: meta.payment_method ?? "stripe" },
+          };
+
+          const { data: inserted, error: insErr } = await supabaseAdmin
+            .from("orders")
+            .insert(insertPayload)
+            .select("*")
+            .maybeSingle();
+
+          if (insErr) {
+            console.error("Webhook insert order failed:", insErr.message, insErr.code);
+            if (insErr.code === "23505") {
+              const { data: fetched } = await supabaseAdmin
+                .from("orders")
+                .select("*")
+                .eq("checkout_session_id", session.id)
+                .maybeSingle();
+              orderRow = fetched;
+            } else if (insErr.code === "23503" && userIdForRow) {
+              const { data: insertedGuest } = await supabaseAdmin
+                .from("orders")
+                .insert({ ...insertPayload, user_id: null })
+                .select("*")
+                .maybeSingle();
+              orderRow = insertedGuest;
+            }
+          } else {
+            orderRow = inserted;
+          }
+        }
 
         // Auto-send invoice when paid (idempotent)
         if (computedStatus === "paid" && orderRow && !orderRow.invoice_sent_at) {

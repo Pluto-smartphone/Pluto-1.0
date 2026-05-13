@@ -24,20 +24,48 @@ const PaymentHistory: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
 
-  const loadOrders = useCallback(async (uid: string) => {
-    const { data, error } = await supabase
+  const loadOrders = useCallback(async (uid: string, email: string | undefined) => {
+    const byUser = await supabase
       .from('orders')
       .select('*')
       .eq('user_id', uid)
       .order('created_at', { ascending: false })
       .limit(100);
 
-    if (error) {
-      console.error(error);
+    if (byUser.error) {
+      console.error(byUser.error);
       setOrders([]);
       return;
     }
-    setOrders((data ?? []) as OrderRow[]);
+
+    const rows = new Map<string, OrderRow>();
+    for (const r of (byUser.data ?? []) as OrderRow[]) {
+      rows.set(r.id, r);
+    }
+
+    // Guest checkout: user_id null but shipping email matches account (RLS allows only matching email)
+    if (email?.trim()) {
+      const byEmail = await supabase
+        .from('orders')
+        .select('*')
+        .is('user_id', null)
+        .ilike('customer_email', email.trim())
+        .order('created_at', { ascending: false })
+        .limit(100);
+
+      if (!byEmail.error) {
+        for (const r of (byEmail.data ?? []) as OrderRow[]) {
+          rows.set(r.id, r);
+        }
+      }
+    }
+
+    const merged = Array.from(rows.values()).sort((a, b) => {
+      const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return tb - ta;
+    });
+    setOrders(merged.slice(0, 100));
   }, []);
 
   useEffect(() => {
@@ -51,7 +79,7 @@ const PaymentHistory: React.FC = () => {
         setLoading(false);
         return;
       }
-      await loadOrders(uid);
+      await loadOrders(uid, session.user.email ?? undefined);
       if (cancelled) return;
       setLoading(false);
     })();
@@ -63,7 +91,7 @@ const PaymentHistory: React.FC = () => {
         setOrders([]);
         return;
       }
-      await loadOrders(uid);
+      await loadOrders(uid, session.user.email ?? undefined);
     });
 
     return () => {
@@ -86,7 +114,12 @@ const PaymentHistory: React.FC = () => {
           filter: `user_id=eq.${userId}`,
         },
         () => {
-          void loadOrders(userId);
+          void (async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.user?.id === userId) {
+              await loadOrders(userId, session.user.email ?? undefined);
+            }
+          })();
         }
       )
       .subscribe();

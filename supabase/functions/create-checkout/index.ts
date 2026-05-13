@@ -116,29 +116,37 @@ serve(async (req) => {
     console.log("Checkout session created:", session.id);
 
     // Persist order in DB (service role; never trust client-side success redirect alone)
-    try {
-      await supabaseServiceClient.from("orders").insert({
-        user_id: user?.id ?? null,
-        provider: "stripe",
-        checkout_session_id: session.id,
-        status: "created",
-        currency: "thb",
-        amount_total: Number(totalAmount.toFixed(2)),
-        customer_email: customerEmail ?? null,
-        customer_name: (user?.user_metadata?.full_name as string | undefined) || null,
-        items: lineItems.map((li) => ({
-          name: li.name,
-          quantity: li.quantity,
-          amount: li.amount,
-        })),
-        shipping: shipping ?? null,
-        metadata: {
-          payment_method: paymentMethod,
-        },
-      });
-    } catch (e) {
-      console.error("Failed to persist order:", e);
-      // Do not block checkout if persistence fails; webhook can still reconstruct minimal info.
+    const orderInsert = {
+      user_id: user?.id ?? null,
+      provider: "stripe",
+      checkout_session_id: session.id,
+      status: "created",
+      currency: "thb",
+      amount_total: Number(totalAmount.toFixed(2)),
+      customer_email: customerEmail ?? null,
+      customer_name: (user?.user_metadata?.full_name as string | undefined) || null,
+      items: lineItems.map((li) => ({
+        name: li.name,
+        quantity: li.quantity,
+        amount: li.amount,
+      })),
+      shipping: shipping ?? null,
+      metadata: {
+        payment_method: paymentMethod,
+      },
+    };
+
+    const { error: orderErr } = await supabaseServiceClient.from("orders").insert(orderInsert);
+    if (orderErr) {
+      console.error("Failed to persist order:", orderErr.message, orderErr.code);
+      // FK to profiles: missing profile row — store as guest so history matches by email
+      if (orderErr.code === "23503" && user?.id) {
+        const { error: retryErr } = await supabaseServiceClient.from("orders").insert({
+          ...orderInsert,
+          user_id: null,
+        });
+        if (retryErr) console.error("Retry persist order (guest) failed:", retryErr.message);
+      }
     }
 
     return new Response(JSON.stringify({ url: session.url, sessionId: session.id, html: session.html }), {
