@@ -8,6 +8,7 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8080,
+    middlewareMode: true,
   },
   plugins: [
     react(),
@@ -19,4 +20,9 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  preview: {
+    host: "::",
+    port: 8080,
+  },
+  appType: 'spa',
 }));
