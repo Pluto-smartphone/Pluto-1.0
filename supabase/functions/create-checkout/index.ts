@@ -73,7 +73,17 @@ serve(async (req) => {
     });
 
     // Get origin URL for redirects
-    const origin = req.headers.get("origin") || req.headers.get("referer") || "http://localhost:3000";
+    let origin = req.headers.get("origin");
+    
+    // Fallback to environment variable for production
+    if (!origin) {
+      origin = Deno.env.get("PAYMENT_REDIRECT_URL") || "https://www.thepluto.org";
+    }
+    
+    // Clean up referer if used (remove query params)
+    if (origin?.includes('?')) {
+      origin = origin.split('?')[0];
+    }
     
     // Get Supabase URL for webhook
     const postbackUrl = `${supabaseUrl}/functions/v1/payment-webhook`;
