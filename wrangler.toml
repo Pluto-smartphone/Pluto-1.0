@@ -1,18 +1,8 @@
 name = "pluto"
-type = "javascript"
-main = "dist/index.html"
-
-[env.production]
-routes = [
-  { pattern = "www.thepluto.org", zone_name = "thepluto.org" },
-  { pattern = "thepluto.org", zone_name = "thepluto.org" }
-]
+compatibility_date = "2024-01-01"
 
 [build]
 command = "npm run build"
-cwd = "./dist"
-watch_paths = ["src/**/*.tsx", "src/**/*.ts"]
 
-[[routes]]
-pattern = "/*"
-custom_domain = false
+[site]
+bucket = "./dist"

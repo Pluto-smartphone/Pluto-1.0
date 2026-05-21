@@ -71,7 +71,23 @@ serve(async (req) => {
         imageUrl: item.image || item.image_url || '',
       };
     });
-const origin = req.headers.get("origin") || req.headers.get("referer") || "http://localhost:3000";
+    // Extract origin for redirect URLs
+    const rawOrigin = req.headers.get("origin");
+    let origin = rawOrigin;
+    if (!origin) {
+      const referer = req.headers.get("referer");
+      if (referer) {
+        try {
+          const refUrl = new URL(referer);
+          origin = refUrl.origin;
+        } catch {
+          origin = null;
+        }
+      }
+    }
+    if (!origin) {
+      origin = Deno.env.get("SITE_URL") || "https://www.thepluto.org";
+    }
     
     
     // Get Supabase URL for webhook
