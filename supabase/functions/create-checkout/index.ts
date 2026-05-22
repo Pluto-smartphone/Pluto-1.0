@@ -7,6 +7,15 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+function normalizeOrigin(value: string | null | undefined): string | null {
+  if (!value?.trim()) return null;
+  try {
+    return new URL(value).origin;
+  } catch {
+    return null;
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -71,23 +80,12 @@ serve(async (req) => {
         imageUrl: item.image || item.image_url || '',
       };
     });
-    // Extract origin for redirect URLs
-    const rawOrigin = req.headers.get("origin");
-    let origin = rawOrigin;
-    if (!origin) {
-      const referer = req.headers.get("referer");
-      if (referer) {
-        try {
-          const refUrl = new URL(referer);
-          origin = refUrl.origin;
-        } catch {
-          origin = null;
-        }
-      }
-    }
-    if (!origin) {
-      origin = Deno.env.get("SITE_URL") || "https://www.thepluto.org";
-    }
+    // Prefer a configured production URL so Stripe never returns to an old preview/Vercel origin.
+    const configuredOrigin = normalizeOrigin(Deno.env.get("SITE_URL"));
+    const requestOrigin =
+      normalizeOrigin(req.headers.get("origin")) ||
+      normalizeOrigin(req.headers.get("referer"));
+    const origin = configuredOrigin || requestOrigin || "https://www.thepluto.org";
     
     
     // Get Supabase URL for webhook
