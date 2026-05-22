@@ -1,80 +1,10 @@
-import React, { useState } from 'react';
-import { Shield, Award, Users, Smartphone, Mail, MapPin, Clock, Send, MessageCircle, Loader2 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Button } from '@/components/ui/button';
+import React from 'react';
+import { Shield, Award, Users, Smartphone, Mail, MapPin, Clock } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
 
 const About: React.FC = () => {
   const { t, language } = useLanguage();
-  const { toast } = useToast();
-  const [isSending, setIsSending] = useState(false);
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    subject: '',
-    message: ''
-  });
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.subject) {
-      toast({
-        title: language === 'th' ? 'เลือกหัวข้อ' : 'Select a subject',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    setIsSending(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('send-contact', {
-        body: {
-          name: formData.name,
-          email: formData.email,
-          subject: formData.subject,
-          message: formData.message,
-        },
-      });
-
-      if (error) {
-        const msg = (data as { error?: string })?.error || error.message;
-        throw new Error(msg);
-      }
-
-      if ((data as { error?: string })?.error) {
-        throw new Error((data as { error: string }).error);
-      }
-
-      toast({
-        title: language === 'th' ? 'ส่งข้อความเรียบร้อยแล้ว' : 'Message sent',
-        description:
-          language === 'th'
-            ? 'เราได้รับข้อความของคุณแล้ว จะติดต่อกลับทางอีเมล'
-            : 'We received your message and will reply by email.',
-      });
-      setFormData({ name: '', email: '', subject: '', message: '' });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      toast({
-        title: language === 'th' ? 'ส่งไม่สำเร็จ' : 'Could not send',
-        description: message,
-        variant: 'destructive',
-      });
-    } finally {
-      setIsSending(false);
-    }
-  };
-
-  const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-  };
-
   const features = [
     {
       icon: Shield,
@@ -224,7 +154,7 @@ const About: React.FC = () => {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+          <div className="max-w-5xl mx-auto">
             {/* Contact Information */}
             <div className="space-y-8">
               <div className="animate-slide-up">
@@ -313,100 +243,6 @@ const About: React.FC = () => {
                   </Card>
                 </div>
               </div>
-            </div>
-
-            {/* Contact Form */}
-            <div className="animate-fade-in" style={{ animationDelay: '0.3s' }}>
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <MessageCircle className="h-5 w-5" />
-                    {t('sendMessage')}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <form onSubmit={handleSubmit} className="space-y-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="name">
-                          {t('fullName')}
-                        </Label>
-                        <Input
-                          id="name"
-                          value={formData.name}
-                          onChange={(e) => handleInputChange('name', e.target.value)}
-                          placeholder={language === 'th' ? 'กรอกชื่อ-นามสกุล' : 'Enter your full name'}
-                          required
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="email">
-                          {t('emailSell')}
-                        </Label>
-                        <Input
-                          id="email"
-                          type="email"
-                          value={formData.email}
-                          onChange={(e) => handleInputChange('email', e.target.value)}
-                          placeholder={language === 'th' ? 'กรอกอีเมล' : 'Enter your email'}
-                          required
-                        />
-                      </div>
-                    </div>
-
-                      <div>
-                        <Label htmlFor="subject">
-                          {t('subject')}
-                        </Label>
-                      <Select value={formData.subject} onValueChange={(value) => handleInputChange('subject', value)}>
-                        <SelectTrigger>
-                          <SelectValue placeholder={language === 'th' ? 'เลือกหัวข้อ' : 'Select a subject'} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="general">
-                            {language === 'th' ? 'สอบถามทั่วไป' : 'General Inquiry'}
-                          </SelectItem>
-                          <SelectItem value="support">
-                            {language === 'th' ? 'ขอความช่วยเหลือ' : 'Technical Support'}
-                          </SelectItem>
-                          <SelectItem value="order">
-                            {language === 'th' ? 'สถานะคำสั่งซื้อ' : 'Order Status'}
-                          </SelectItem>
-                          <SelectItem value="return">
-                            {language === 'th' ? 'การคืนสินค้า' : 'Product Return'}
-                          </SelectItem>
-                          <SelectItem value="partnership">
-                            {language === 'th' ? 'ความร่วมมือ' : 'Partnership'}
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div>
-                      <Label htmlFor="message">
-                        {t('message')}
-                      </Label>
-                      <Textarea
-                        id="message"
-                        value={formData.message}
-                        onChange={(e) => handleInputChange('message', e.target.value)}
-                        placeholder={language === 'th' ? 'กรอกข้อความของคุณ...' : 'Enter your message...'}
-                        rows={5}
-                        required
-                      />
-                    </div>
-
-                    <Button type="submit" size="lg" className="w-full gradient-primary shadow-red" disabled={isSending}>
-                      {isSending ? (
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      ) : (
-                        <Send className="h-4 w-4 mr-2" />
-                      )}
-                      {language === 'th' ? 'ส่งข้อความ' : 'Send Message'}
-                    </Button>
-                  </form>
-                </CardContent>
-              </Card>
             </div>
           </div>
 
