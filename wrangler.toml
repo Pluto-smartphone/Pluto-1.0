@@ -1,5 +1,6 @@
 name = "pluto"
 compatibility_date = "2026-05-22"
+workers_dev = true
 
 [build]
 command = "npm run build"
@@ -7,3 +8,11 @@ command = "npm run build"
 [assets]
 directory = "./dist"
 not_found_handling = "single-page-application"
+
+[[routes]]
+pattern = "www.thepluto.org/*"
+zone_name = "thepluto.org"
+
+[[routes]]
+pattern = "thepluto.org/*"
+zone_name = "thepluto.org"
