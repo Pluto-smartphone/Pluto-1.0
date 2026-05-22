@@ -11,6 +11,6 @@ CREATE POLICY "Users can view their own orders"
     OR (
       user_id IS NULL
       AND customer_email IS NOT NULL
-      AND lower(trim(customer_email)) = lower(trim((SELECT email::text FROM auth.users WHERE id = auth.uid())))
+      AND lower(trim(customer_email)) = lower(trim(auth.email()))
     )
   );
