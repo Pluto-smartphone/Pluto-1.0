@@ -29,6 +29,7 @@ const PaymentHistory: React.FC = () => {
       .from('orders')
       .select('*')
       .eq('user_id', uid)
+      .eq('status', 'paid')
       .order('created_at', { ascending: false })
       .limit(100);
 
@@ -49,6 +50,7 @@ const PaymentHistory: React.FC = () => {
         .from('orders')
         .select('*')
         .is('user_id', null)
+        .eq('status', 'paid')
         .ilike('customer_email', email.trim())
         .order('created_at', { ascending: false })
         .limit(100);
