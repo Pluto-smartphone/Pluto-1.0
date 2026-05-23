@@ -29,9 +29,9 @@ const About: React.FC = () => {
     },
     {
       icon: Smartphone,
-      title: language === 'th' ? 'สินค้าหลากหลาย' : t('diverseProducts'),
+      title: language === 'th' ? 'สินค้ามีคุณภาพ' : t('diverseProducts'),
       description: language === 'th'
-        ? 'มีสมาร์ทโฟนให้เลือกมากมายจากทุกแบรนด์ดัง ทั้งใหม่และมือสอง'
+        ? 'มีสมาร์ทโฟนให้เลือกอย่างมีคุณภาพ ทั้งใหม่และมือสอง'
         : t('diverseDesc')
     }
   ];
@@ -86,59 +86,7 @@ const About: React.FC = () => {
           </div>
         </div>
 
-        {/* Stats Section */}
-        <div className="mb-16">
-          <div className="bg-card border border-border rounded-2xl p-8 md:p-12">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
-              <div className="animate-fade-in">
-                <div className="text-4xl font-bold text-primary mb-2">50,000+</div>
-                <p className="text-muted-foreground">
-                  {t('satisfiedCustomers')}
-                </p>
-              </div>
-              <div className="animate-fade-in" style={{ animationDelay: '0.1s' }}>
-                <div className="text-4xl font-bold text-primary mb-2">10,000+</div>
-                <p className="text-muted-foreground">
-                  {t('productsInStock')}
-                </p>
-              </div>
-              <div className="animate-fade-in" style={{ animationDelay: '0.2s' }}>
-                <div className="text-4xl font-bold text-primary mb-2">5+</div>
-                <p className="text-muted-foreground">
-                  {t('yearsExperience')}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Team Section */}
-        <div className="text-center mb-16">
-          <h2 className="text-3xl font-bold text-foreground mb-6">
-            {t('ourTeam')}
-          </h2>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-12">
-            {t('teamDesc')}
-          </p>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
-            {[1, 2, 3].map((i) => (
-              <Card key={i} className="hover-lift">
-                <CardContent className="p-6 text-center">
-                  <div className="w-20 h-20 bg-gradient-to-br from-primary/20 to-primary/30 rounded-full mx-auto mb-4 flex items-center justify-center">
-                    <Users className="h-8 w-8 text-primary" />
-                  </div>
-                  <h3 className="font-semibold text-foreground mb-2">
-                    {t('expertTeam')}
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    {t('specialists')}
-                  </p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
+       
 
         {/* Contact Section */}
         <div id="contact" className="scroll-mt-20">

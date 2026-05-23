@@ -47,8 +47,7 @@ const Sell: React.FC = () => {
   });
 
   const brands = [
-    'Apple', 'Samsung', 'Google', 'OnePlus', 'Xiaomi', 'Huawei', 
-    'Sony', 'LG', 'Motorola', 'Nokia', 'Other'
+    'Apple', 'Samsung'
   ];
 
   const conditions = [
