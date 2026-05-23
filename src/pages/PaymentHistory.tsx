@@ -218,6 +218,11 @@ const PaymentHistory: React.FC = () => {
       <Card>
         <CardHeader>
           <CardTitle>{t('paymentHistorySubtitle')}</CardTitle>
+          <p className="text-sm text-muted-foreground mt-2">
+    {language === 'th'
+      ? 'ข้อมูลการจัดส่งจะถูกส่งไปยังอีเมลของคุณ'
+      : 'Shipping information will be sent to your email.'}
+  </p>
         </CardHeader>
         <CardContent>
           {loading ? (
