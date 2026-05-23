@@ -126,6 +126,11 @@ export async function sendEmail(params: {
   html: string;
   /** Resend: reply-to address (visitor email for contact forms) */
   replyTo?: string;
+  attachments?: Array<{
+    filename: string;
+    content: string;
+    content_type?: string;
+  }>;
 }) {
   const resendApiKey = Deno.env.get("RESEND_API_KEY")?.trim();
 
@@ -142,6 +147,7 @@ export async function sendEmail(params: {
   };
   const reply = params.replyTo?.trim();
   if (reply) payload.reply_to = [reply];
+  if (params.attachments?.length) payload.attachments = params.attachments;
 
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -199,4 +205,3 @@ function formatShipping(shipping: Record<string, unknown>) {
 
   return parts.join("\n");
 }
-

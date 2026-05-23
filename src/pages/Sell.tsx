@@ -6,9 +6,9 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Upload, Smartphone, DollarSign, Package } from 'lucide-react';
 import { z } from 'zod';
 
@@ -27,8 +27,35 @@ const sellFormSchema = z.object({
   contactPhone: z.string().max(20, "Phone number must be less than 20 characters").optional()
 });
 
+type SellImagePayload = {
+  filename: string;
+  contentType: string;
+  size: number;
+  content: string;
+};
+
+const fileToSellImagePayload = (file: File): Promise<SellImagePayload> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      const result = String(reader.result || '');
+      const content = result.includes(',') ? result.split(',')[1] : result;
+      resolve({
+        filename: file.name,
+        contentType: file.type,
+        size: file.size,
+        content,
+      });
+    };
+
+    reader.onerror = () => reject(new Error('Unable to read image file'));
+    reader.readAsDataURL(file);
+  });
+};
+
 const Sell: React.FC = () => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -51,10 +78,10 @@ const Sell: React.FC = () => {
   ];
 
   const conditions = [
-    { value: 'new', label: 'Brand New' },
-    { value: 'excellent', label: 'Excellent (Like New)' },
-    { value: 'good', label: 'Good (Minor Wear)' },
-    { value: 'fair', label: 'Fair (Noticeable Wear)' }
+    { value: 'new', label: language === 'th' ? 'ใหม่' : 'Brand New' },
+    { value: 'excellent', label: language === 'th' ? 'ดีเยี่ยม (เหมือนใหม่)' : 'Excellent (Like New)' },
+    { value: 'good', label: language === 'th' ? 'ดี (มีรอยเล็กน้อย)' : 'Good (Minor Wear)' },
+    { value: 'fair', label: language === 'th' ? 'พอใช้ (มีรอยชัดเจน)' : 'Fair (Noticeable Wear)' }
   ];
 
   const storageOptions = [
@@ -67,7 +94,21 @@ const Sell: React.FC = () => {
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    const invalidFile = files.find(file => !allowedTypes.includes(file.type));
+
+    if (invalidFile) {
+      toast({
+        variant: "destructive",
+        title: language === 'th' ? "ไฟล์รูปภาพไม่ถูกต้อง" : "Invalid image file",
+        description: language === 'th' ? "รองรับเฉพาะ PNG, JPG, JPEG หรือ WEBP" : "Only PNG, JPG, JPEG or WEBP images are supported.",
+      });
+      e.target.value = '';
+      return;
+    }
+
     setFormData(prev => ({ ...prev, images: [...prev.images, ...files].slice(0, 5) }));
+    e.target.value = '';
   };
 
   const removeImage = (index: number) => {
@@ -99,7 +140,7 @@ const Sell: React.FC = () => {
         const firstError = validationResult.error.errors[0];
         toast({
           variant: "destructive",
-          title: "Validation Error",
+          title: language === 'th' ? "ข้อมูลไม่ครบถ้วน" : "Validation Error",
           description: firstError.message,
         });
         setIsSubmitting(false);
@@ -110,8 +151,8 @@ const Sell: React.FC = () => {
       if (formData.images.length === 0) {
         toast({
           variant: "destructive",
-          title: "Validation Error",
-          description: "Please upload at least one image",
+          title: language === 'th' ? "กรุณาอัปโหลดรูป" : "Validation Error",
+          description: language === 'th' ? "กรุณาอัปโหลดรูปอย่างน้อย 1 รูป" : "Please upload at least one image",
         });
         setIsSubmitting(false);
         return;
@@ -123,19 +164,30 @@ const Sell: React.FC = () => {
       if (oversizedImage) {
         toast({
           variant: "destructive",
-          title: "Validation Error",
-          description: "Each image must be less than 5MB",
+          title: language === 'th' ? "ไฟล์ใหญ่เกินไป" : "Validation Error",
+          description: language === 'th' ? "รูปแต่ละไฟล์ต้องมีขนาดไม่เกิน 5MB" : "Each image must be less than 5MB",
         });
         setIsSubmitting(false);
         return;
       }
 
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const images = await Promise.all(formData.images.map(fileToSellImagePayload));
+      const { data, error } = await supabase.functions.invoke('send-sell', {
+        body: {
+          ...validationResult.data,
+          images,
+        },
+      });
+
+      if (error || data?.error) {
+        throw new Error(data?.error || error?.message || 'Failed to submit sell request');
+      }
       
       toast({
-        title: "Success!",
-        description: "Your smartphone listing has been submitted for review. We'll contact you within 24 hours.",
+        title: language === 'th' ? "ส่งข้อมูลเรียบร้อย!" : "Success!",
+        description: language === 'th'
+          ? "เราได้รับข้อมูลและรูปภาพแล้ว ทีมงานจะติดต่อกลับภายใน 24 ชั่วโมง"
+          : "Your smartphone details and photos have been sent. We'll contact you within 24 hours.",
       });
 
       // Reset form
@@ -157,8 +209,10 @@ const Sell: React.FC = () => {
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Error",
-        description: "Something went wrong. Please try again.",
+        title: language === 'th' ? "ส่งข้อมูลไม่สำเร็จ" : "Error",
+        description: error instanceof Error
+          ? error.message
+          : (language === 'th' ? "เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง" : "Something went wrong. Please try again."),
       });
     } finally {
       setIsSubmitting(false);
@@ -166,7 +220,7 @@ const Sell: React.FC = () => {
   };
 
   const isFormValid = formData.brand && formData.model && formData.condition && 
-                     formData.price && formData.contactEmail;
+                     formData.price && formData.contactEmail && formData.images.length > 0;
 
   return (
     <main className="container mx-auto px-4 py-8">
@@ -236,7 +290,7 @@ const Sell: React.FC = () => {
                     <Label htmlFor="brand">{t('brand')} *</Label>
                     <Select value={formData.brand} onValueChange={(value) => handleInputChange('brand', value)}>
                       <SelectTrigger>
-                        <SelectValue placeholder={t('language') === 'th' ? 'เลือกยี่ห้อ' : 'Select brand'} />
+                        <SelectValue placeholder={language === 'th' ? 'เลือกยี่ห้อ' : 'Select brand'} />
                       </SelectTrigger>
                       <SelectContent>
                         {brands.map(brand => (
@@ -252,7 +306,7 @@ const Sell: React.FC = () => {
                     <Label htmlFor="model">{t('model')} *</Label>
                     <Input
                       id="model"
-                      placeholder={t('language') === 'th' ? 'เช่น iPhone 15 Pro, Galaxy S24' : 'e.g., iPhone 15 Pro, Galaxy S24'}
+                      placeholder={language === 'th' ? 'เช่น iPhone 15 Pro, Galaxy S24' : 'e.g., iPhone 15 Pro, Galaxy S24'}
                       value={formData.model}
                       onChange={(e) => handleInputChange('model', e.target.value)}
                       required
@@ -263,7 +317,7 @@ const Sell: React.FC = () => {
                     <Label htmlFor="condition">{t('condition')} *</Label>
                     <Select value={formData.condition} onValueChange={(value) => handleInputChange('condition', value)}>
                       <SelectTrigger>
-                        <SelectValue placeholder={t('language') === 'th' ? 'เลือกสภาพ' : 'Select condition'} />
+                        <SelectValue placeholder={language === 'th' ? 'เลือกสภาพ' : 'Select condition'} />
                       </SelectTrigger>
                       <SelectContent>
                         {conditions.map(condition => (
@@ -279,7 +333,7 @@ const Sell: React.FC = () => {
                     <Label htmlFor="storage">{t('storageSell')}</Label>
                     <Select value={formData.storage} onValueChange={(value) => handleInputChange('storage', value)}>
                       <SelectTrigger>
-                        <SelectValue placeholder={t('language') === 'th' ? 'เลือกความจุ' : 'Select storage'} />
+                        <SelectValue placeholder={language === 'th' ? 'เลือกความจุ' : 'Select storage'} />
                       </SelectTrigger>
                       <SelectContent>
                         {storageOptions.map(storage => (
@@ -295,7 +349,7 @@ const Sell: React.FC = () => {
                     <Label htmlFor="color">{t('colorSell')}</Label>
                     <Input
                       id="color"
-                      placeholder={t('language') === 'th' ? 'เช่น Space Black, White' : 'e.g., Space Black, White'}
+                      placeholder={language === 'th' ? 'เช่น Space Black, White' : 'e.g., Space Black, White'}
                       value={formData.color}
                       onChange={(e) => handleInputChange('color', e.target.value)}
                     />
@@ -306,7 +360,7 @@ const Sell: React.FC = () => {
                     <Input
                       id="price"
                       type="number"
-                      placeholder={t('language') === 'th' ? 'กรอกราคาที่คาดหวัง' : 'Enter expected price'}
+                      placeholder={language === 'th' ? 'กรอกราคาที่คาดหวัง' : 'Enter expected price'}
                       value={formData.price}
                       onChange={(e) => handleInputChange('price', e.target.value)}
                       required
@@ -319,7 +373,7 @@ const Sell: React.FC = () => {
                   <Label htmlFor="description">{t('descSell')}</Label>
                   <Textarea
                     id="description"
-                    placeholder={t('language') === 'th' ? 'อธิบายสภาพ อุปกรณ์เสริมที่มีพร้อม กล่องเดิม ฯลฯ' : 'Describe the condition, any accessories included, original box, etc.'}
+                    placeholder={language === 'th' ? 'อธิบายสภาพ อุปกรณ์เสริมที่มีพร้อม กล่องเดิม ฯลฯ' : 'Describe the condition, any accessories included, original box, etc.'}
                     value={formData.description}
                     onChange={(e) => handleInputChange('description', e.target.value)}
                     rows={4}
@@ -328,16 +382,16 @@ const Sell: React.FC = () => {
 
                 {/* Images */}
                 <div>
-                  <Label>{t('language') === 'th' ? 'รูปภาพอุปกรณ์ (สูงสุด 5 ภาพ)' : 'Device Photos (Max 5)'}</Label>
+                  <Label>{language === 'th' ? 'รูปภาพอุปกรณ์ (สูงสุด 5 ภาพ)' : 'Device Photos (Max 5)'}</Label>
                   <div className="mt-2">
                     <div className="flex items-center justify-center w-full">
                       <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-border border-dashed rounded-lg cursor-pointer bg-muted hover:bg-muted/80">
                         <div className="flex flex-col items-center justify-center pt-5 pb-6">
                           <Upload className="w-8 h-8 mb-4 text-muted-foreground" />
                           <p className="mb-2 text-sm text-muted-foreground">
-                            <span className="font-semibold">{t('language') === 'th' ? 'คลิกเพื่ออัปโหลด' : 'Click to upload'}</span> {t('language') === 'th' ? 'รูปภาพอุปกรณ์' : 'device photos'}
+                            <span className="font-semibold">{language === 'th' ? 'คลิกเพื่ออัปโหลด' : 'Click to upload'}</span> {language === 'th' ? 'รูปภาพอุปกรณ์' : 'device photos'}
                           </p>
-                          <p className="text-xs text-muted-foreground">{t('language') === 'th' ? 'PNG, JPG หรือ JPEG (สูงสุด 5 ไฟล์)' : 'PNG, JPG or JPEG (MAX. 5 files)'}</p>
+                          <p className="text-xs text-muted-foreground">{language === 'th' ? 'PNG, JPG, JPEG หรือ WEBP (สูงสุด 5 ไฟล์)' : 'PNG, JPG, JPEG or WEBP (MAX. 5 files)'}</p>
                         </div>
                         <input
                           type="file"
@@ -384,7 +438,7 @@ const Sell: React.FC = () => {
                       <Input
                         id="contactEmail"
                         type="email"
-                        placeholder={t('language') === 'th' ? 'your.email@example.com' : 'your.email@example.com'}
+                        placeholder="your.email@example.com"
                         value={formData.contactEmail}
                         onChange={(e) => handleInputChange('contactEmail', e.target.value)}
                         required
@@ -411,7 +465,7 @@ const Sell: React.FC = () => {
                     className="flex-1"
                     disabled={!isFormValid || isSubmitting}
                   >
-                    {isSubmitting ? (t('language') === 'th' ? 'กำลังส่ง...' : 'Submitting...') : (t('language') === 'th' ? 'ส่งเพื่อประเมินราคา' : 'Submit for Evaluation')}
+                    {isSubmitting ? (language === 'th' ? 'กำลังส่ง...' : 'Submitting...') : (language === 'th' ? 'ส่งเพื่อประเมินราคา' : 'Submit for Evaluation')}
                   </Button>
                   <Button
                     type="button"
