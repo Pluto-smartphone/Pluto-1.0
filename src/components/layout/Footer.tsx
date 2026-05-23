@@ -99,7 +99,7 @@ const Footer: React.FC = () => {
                   {t('secondHand')}
                 </Link>
               </li>
-              <li>
+             {/*  <li>
                 <a href="#" className="text-muted-foreground hover:text-primary transition-colors text-sm">
                   {t('language') === 'th' ? 'อุปกรณ์เสริม' : 'Accessories'}
                 </a>
@@ -108,7 +108,7 @@ const Footer: React.FC = () => {
                 <a href="#" className="text-muted-foreground hover:text-primary transition-colors text-sm">
                   {t('language') === 'th' ? 'การรับประกัน' : 'Warranty'}
                 </a>
-              </li>
+              </li> */}
             </ul>
           </div>
 
