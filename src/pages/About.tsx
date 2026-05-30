@@ -66,7 +66,7 @@ const About: React.FC = () => {
       icon: Smartphone,
       title: language === 'th' ? 'สินค้ามีคุณภาพ' : t('diverseProducts'),
       description: language === 'th'
-        ? 'มีสมาร์ทโฟนให้เลือกอย่างมีคุณภาพ ทั้งใหม่และมือสอง'
+        ? 'มีสมาร์ทโฟนที่มีคุณภาพให้เลือกอย่างมากมาย ทั้งใหม่และมือสอง'
         : t('diverseDesc')
     }
   ];
