@@ -1,4 +1,5 @@
 name = "pluto"
+account_id = "e5dcffd26a0dc651f1292698a3c5fbd9"
 compatibility_date = "2026-05-22"
 workers_dev = true
 
