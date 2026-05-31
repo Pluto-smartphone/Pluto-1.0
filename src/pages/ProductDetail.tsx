@@ -133,6 +133,11 @@ const ProductDetail: React.FC = () => {
     toggleWishlist(product);
   };
 
+  const handleBuyNow = () => {
+    addToCart(product);
+    navigate('/cart');
+  };
+
   const isFavorited = isInWishlist(product.id);
 
   const formatPrice = (price: number) => {
@@ -315,6 +320,7 @@ const ProductDetail: React.FC = () => {
                 variant="secondary"
                 size="lg"
                 className="w-full"
+                onClick={handleBuyNow}
               >
                 {t('buyNow')}
               </Button>
