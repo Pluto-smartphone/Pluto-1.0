@@ -49,6 +49,9 @@ export function generateInvoiceHTML(params: {
     .total-label { width: 200px; font-weight: bold; }
     .total-value { width: 150px; text-align: right; }
     .grand-total { font-size: 24px; font-weight: bold; color: #667eea; border-top: 2px solid #667eea; padding-top: 10px; margin-top: 10px; }
+    .thank-you { background: #f6f7ff; border: 1px solid #dfe3ff; border-radius: 8px; padding: 18px; margin-top: 28px; color: #333; }
+    .thank-you h2 { color: #667eea; font-size: 20px; margin: 0 0 8px; }
+    .thank-you p { margin: 6px 0; }
     .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #ddd; text-align: center; color: #666; font-size: 14px; }
   </style>
 </head>
@@ -111,8 +114,14 @@ export function generateInvoiceHTML(params: {
       </div>
     </div>
 
+    <div class="thank-you">
+      <h2>ขอบคุณที่เชื่อมั่นและใช้บริการ Pluto</h2>
+      <p>เราได้รับการชำระเงินของคุณเรียบร้อยแล้ว ทีมงานจะตรวจสอบคำสั่งซื้อและเตรียมดำเนินการจัดส่งโดยเร็วที่สุด</p>
+      <p>หากมีข้อสงสัยเกี่ยวกับคำสั่งซื้อนี้ สามารถติดต่อเราได้ที่ pluto.th.business@gmail.com</p>
+    </div>
+
     <div class="footer">
-      <p>ขอบคุณที่ใช้บริการของเรา</p>
+      <p>ขอบคุณที่ไว้วางใจให้ Pluto ดูแลคำสั่งซื้อของคุณ</p>
       <p>Thank you for your purchase!</p>
     </div>
   </div>

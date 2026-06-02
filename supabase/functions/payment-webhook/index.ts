@@ -8,6 +8,119 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, stripe-signature",
 };
 
+const DEFAULT_ORDER_INBOX = "pluto.th.business@gmail.com";
+
+function escapeHtml(input: string) {
+  return input
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function formatBaht(amount: number) {
+  return new Intl.NumberFormat("th-TH", {
+    style: "currency",
+    currency: "THB",
+  }).format(amount);
+}
+
+function formatShippingForEmail(shipping: Record<string, unknown> | null | undefined) {
+  if (!shipping) return "ไม่มีข้อมูลจัดส่ง";
+
+  const parts: string[] = [];
+  const get = (key: string) => {
+    const value = shipping[key];
+    return typeof value === "string" ? value.trim() : "";
+  };
+
+  const name = `${get("firstName")} ${get("lastName")}`.trim();
+  if (name) parts.push(name);
+  const phone = get("phone");
+  if (phone) parts.push(`โทร: ${phone}`);
+  const email = get("email");
+  if (email) parts.push(`อีเมล: ${email}`);
+
+  const address = [
+    get("houseNo"),
+    get("building"),
+    get("moo") ? `หมู่ ${get("moo")}` : "",
+    get("soi") ? `ซอย ${get("soi")}` : "",
+    get("road") ? `ถนน ${get("road")}` : "",
+    get("subdistrict"),
+    get("district"),
+    get("province"),
+    get("postalCode"),
+  ].filter(Boolean);
+
+  if (address.length) parts.push(address.join(" "));
+  return parts.length ? parts.join("\n") : "ไม่มีข้อมูลจัดส่ง";
+}
+
+function generateCompanyOrderEmailHTML(params: {
+  sessionId: string;
+  orderId: string;
+  customerName: string;
+  customerEmail: string;
+  amountTotal: number;
+  currency: string;
+  items: InvoiceItem[];
+  shipping?: Record<string, unknown> | null;
+}) {
+  const itemRows = params.items.length
+    ? params.items.map((item) => {
+      const unitAmount = Number(item.amount ?? 0) / 100;
+      const quantity = Number(item.quantity ?? 0);
+      return `
+        <tr>
+          <td style="padding: 10px; border-bottom: 1px solid #e5e7eb;">${escapeHtml(String(item.name ?? "Item"))}</td>
+          <td style="padding: 10px; border-bottom: 1px solid #e5e7eb; text-align: center;">${quantity}</td>
+          <td style="padding: 10px; border-bottom: 1px solid #e5e7eb; text-align: right;">${formatBaht(unitAmount)}</td>
+          <td style="padding: 10px; border-bottom: 1px solid #e5e7eb; text-align: right;">${formatBaht(unitAmount * quantity)}</td>
+        </tr>
+      `;
+    }).join("")
+    : `<tr><td colspan="4" style="padding: 10px; color: #6b7280;">ไม่มีรายการสินค้าในระบบ</td></tr>`;
+
+  return `
+<!DOCTYPE html>
+<html lang="th">
+<head><meta charset="UTF-8"><title>Paid order notification</title></head>
+<body style="font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.6; color: #1f2937; max-width: 760px; margin: 0 auto; padding: 24px; background: #f9fafb;">
+  <div style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 28px;">
+    <h1 style="font-size: 22px; color: #4f46e5; margin: 0 0 12px;">มีการสั่งซื้อและชำระเงินแล้ว</h1>
+    <p style="margin: 0 0 20px;">Stripe ยืนยันการชำระเงินสำเร็จ กรุณาตรวจสอบคำสั่งซื้อและดำเนินการจัดส่งต่อไป</p>
+
+    <h2 style="font-size: 16px; color: #111827; margin: 24px 0 8px;">ข้อมูลคำสั่งซื้อ</h2>
+    <p><strong>Order ID:</strong> ${escapeHtml(params.orderId)}</p>
+    <p><strong>Stripe Session:</strong> ${escapeHtml(params.sessionId)}</p>
+    <p><strong>ยอดชำระ:</strong> ${escapeHtml(params.currency.toUpperCase())} ${formatBaht(params.amountTotal)}</p>
+
+    <h2 style="font-size: 16px; color: #111827; margin: 24px 0 8px;">ข้อมูลลูกค้า</h2>
+    <p><strong>ชื่อ:</strong> ${escapeHtml(params.customerName || "Customer")}</p>
+    <p><strong>อีเมล:</strong> ${escapeHtml(params.customerEmail || "-")}</p>
+
+    <h2 style="font-size: 16px; color: #111827; margin: 24px 0 8px;">ที่อยู่จัดส่ง</h2>
+    <p style="white-space: pre-wrap;">${escapeHtml(formatShippingForEmail(params.shipping))}</p>
+
+    <h2 style="font-size: 16px; color: #111827; margin: 24px 0 8px;">รายการสินค้า</h2>
+    <table style="width: 100%; border-collapse: collapse; background: #ffffff;">
+      <thead>
+        <tr>
+          <th style="padding: 10px; text-align: left; border-bottom: 2px solid #c7d2fe;">สินค้า</th>
+          <th style="padding: 10px; text-align: center; border-bottom: 2px solid #c7d2fe;">จำนวน</th>
+          <th style="padding: 10px; text-align: right; border-bottom: 2px solid #c7d2fe;">ราคา/ชิ้น</th>
+          <th style="padding: 10px; text-align: right; border-bottom: 2px solid #c7d2fe;">รวม</th>
+        </tr>
+      </thead>
+      <tbody>${itemRows}</tbody>
+    </table>
+  </div>
+</body>
+</html>`;
+}
+
 function userIdFromStripeMetadata(meta: Stripe.Metadata | null | undefined): string | null {
   const raw = meta?.user_id;
   if (typeof raw !== "string" || raw === "guest") return null;
@@ -122,7 +235,7 @@ serve(async (req) => {
             };
           });
           const meta = fullSession.metadata ?? {};
-          let userIdForRow = userIdFromStripeMetadata(meta);
+          const userIdForRow = userIdFromStripeMetadata(meta);
           const customerEmail =
             fullSession.customer_details?.email ?? fullSession.customer_email ?? null;
           const customerName = fullSession.customer_details?.name ?? meta.customerName ?? null;
@@ -172,17 +285,21 @@ serve(async (req) => {
           }
         }
 
-        // Auto-send invoice when paid (idempotent)
-        if (computedStatus === "paid" && orderRow && !orderRow.invoice_sent_at) {
-          try {
-            const customerEmail = (orderRow.customer_email as string | null) ?? undefined;
-            if (customerEmail) {
-              const items = (orderRow.items as InvoiceItem[]) || [];
-              const totalAmount = Number(orderRow.amount_total ?? 0);
-              const taxAmount = 0;
+        // Auto-send customer receipt + company notification when paid (idempotent).
+        if (computedStatus === "paid" && orderRow) {
+          const customerEmail = (orderRow.customer_email as string | null) ?? undefined;
+          const customerName = (orderRow.customer_name as string | null) || "Customer";
+          const items = (orderRow.items as InvoiceItem[]) || [];
+          const totalAmount = Number(orderRow.amount_total ?? 0);
+          const taxAmount = 0;
+          const shipping = (orderRow.shipping as Record<string, unknown> | null) ?? undefined;
+          const metadata = ((orderRow.metadata as Record<string, unknown> | null) ?? {});
+
+          if (customerEmail && !orderRow.invoice_sent_at) {
+            try {
               const invoiceHtml = generateInvoiceHTML({
                 orderId: String(orderRow.id),
-                customerName: (orderRow.customer_name as string | null) || "Customer",
+                customerName,
                 customerEmail,
                 items,
                 subtotal: totalAmount - taxAmount,
@@ -194,12 +311,12 @@ serve(async (req) => {
                   month: "long",
                   day: "numeric",
                 }),
-                shipping: (orderRow.shipping as Record<string, unknown> | null) ?? undefined,
+                shipping,
               });
 
               await sendEmail({
                 to: customerEmail,
-                subject: `Invoice #${session.id} - การสั่งซื้อของคุณ`,
+                subject: `ขอบคุณสำหรับการสั่งซื้อ #${session.id} - Pluto`,
                 html: invoiceHtml,
               });
 
@@ -210,10 +327,50 @@ serve(async (req) => {
                   invoice_sent_at: new Date().toISOString(),
                 })
                 .eq("id", orderRow.id);
+            } catch (e) {
+              console.error("Failed to auto-send customer invoice:", e);
+              // Do not fail webhook on email issues
             }
-          } catch (e) {
-            console.error("Failed to auto-send invoice:", e);
-            // Do not fail webhook on email issues
+          }
+
+          if (!metadata.order_paid_email_sent_at) {
+            try {
+              const inbox =
+                Deno.env.get("ORDER_NOTIFICATION_EMAIL")?.trim() ||
+                Deno.env.get("CONTACT_TO_EMAIL")?.trim() ||
+                DEFAULT_ORDER_INBOX;
+              const companyHtml = generateCompanyOrderEmailHTML({
+                sessionId: session.id,
+                orderId: String(orderRow.id),
+                customerName,
+                customerEmail: customerEmail ?? "",
+                amountTotal: totalAmount,
+                currency: String(orderRow.currency ?? session.currency ?? "thb"),
+                items,
+                shipping,
+              });
+
+              await sendEmail({
+                to: inbox,
+                subject: `[Pluto] มีการสั่งซื้อและชำระเงินแล้ว #${session.id}`,
+                html: companyHtml,
+                replyTo: customerEmail,
+              });
+
+              await supabaseAdmin
+                .from("orders")
+                .update({
+                  metadata: {
+                    ...metadata,
+                    order_paid_email_sent_at: new Date().toISOString(),
+                    order_paid_email_to: inbox,
+                  },
+                })
+                .eq("id", orderRow.id);
+            } catch (e) {
+              console.error("Failed to send company paid-order notification:", e);
+              // Do not fail webhook on email issues
+            }
           }
         }
       }
@@ -222,9 +379,10 @@ serve(async (req) => {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
-    } catch (err: any) {
-      console.error("Stripe webhook error:", err?.message);
-      return new Response(JSON.stringify({ error: err?.message || "Invalid signature" }), {
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Invalid signature";
+      console.error("Stripe webhook error:", message);
+      return new Response(JSON.stringify({ error: message }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
