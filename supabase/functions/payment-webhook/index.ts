@@ -159,6 +159,18 @@ serve(async (req) => {
   const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
   const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey);
 
+  if (stripeSig && (!stripeSecret || !webhookSecret)) {
+    const missing = [
+      !stripeSecret ? "STRIPE_SECRET_KEY" : "",
+      !webhookSecret ? "STRIPE_WEBHOOK_SECRET" : "",
+    ].filter(Boolean).join(", ");
+    console.error(`Stripe webhook received but missing env: ${missing}`);
+    return new Response(JSON.stringify({ error: `Missing Stripe webhook env: ${missing}` }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
   if (stripeSig && stripeSecret && webhookSecret) {
     try {
       const stripe = new Stripe(stripeSecret, {
@@ -314,11 +326,14 @@ serve(async (req) => {
                 shipping,
               });
 
-              await sendEmail({
+              const customerEmailResult = await sendEmail({
                 to: customerEmail,
                 subject: `ขอบคุณสำหรับการสั่งซื้อ #${session.id} - Pluto`,
                 html: invoiceHtml,
               });
+              if (!customerEmailResult.success) {
+                throw new Error(customerEmailResult.message || "Customer email was not sent");
+              }
 
               await supabaseAdmin
                 .from("orders")
@@ -350,12 +365,15 @@ serve(async (req) => {
                 shipping,
               });
 
-              await sendEmail({
+              const companyEmailResult = await sendEmail({
                 to: inbox,
                 subject: `[Pluto] มีการสั่งซื้อและชำระเงินแล้ว #${session.id}`,
                 html: companyHtml,
                 replyTo: customerEmail,
               });
+              if (!companyEmailResult.success) {
+                throw new Error(companyEmailResult.message || "Company email was not sent");
+              }
 
               await supabaseAdmin
                 .from("orders")
