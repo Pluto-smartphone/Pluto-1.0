@@ -239,7 +239,7 @@ const PaymentHistory: React.FC = () => {
                     <TableHead>{t('paymentHistoryDate')}</TableHead>
                     <TableHead>{t('paymentHistorySession')}</TableHead>
                     <TableHead>{t('paymentHistoryStatus')}</TableHead>
-                    <TableHead>{t('paymentHistoryEmail')}</TableHead>
+
                     <TableHead className="text-right">{t('total')}</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -260,13 +260,7 @@ const PaymentHistory: React.FC = () => {
                           )}
                         </div>
                       </TableCell>
-                      <TableCell>
-                        {o.invoice_sent_at ? (
-                          <span className="text-xs text-muted-foreground">{t('invoiceEmailSent')}</span>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">—</span>
-                        )}
-                      </TableCell>
+
                       <TableCell className="text-right font-medium">
                         {formatPrice(typeof o.amount_total === 'number' ? o.amount_total : Number(o.amount_total))}
                       </TableCell>
