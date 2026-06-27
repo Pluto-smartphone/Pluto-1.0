@@ -14,14 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import type { Tables } from '@/integrations/supabase/types';
 import type { Product } from '@/contexts/CartContext';
 
-const IMAGE_BUCKET = 'phone-images';
-
-const toPublicImageUrl = (storagePath: string) => {
-  if (!storagePath) return '/placeholder.svg';
-  if (storagePath.startsWith('http://') || storagePath.startsWith('https://')) return storagePath;
-  return supabase.storage.from(IMAGE_BUCKET).getPublicUrl(storagePath).data.publicUrl || '/placeholder.svg';
-};
-
+import { toPublicPhoneImageUrl, PHONE_IMAGE_PLACEHOLDER } from '@/lib/phone-image-url';
 const ProductDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -61,7 +54,7 @@ const ProductDetail: React.FC = () => {
         (imageRows || []).map((img) => ({
           id: img.id,
           storagePath: img.storage_path,
-          url: toPublicImageUrl(img.storage_path),
+          url: toPublicPhoneImageUrl(img.storage_path),
         })) ?? [];
 
       const condition: Product['condition'] = phone.condition === 'new' ? 'new' : 'used';
@@ -173,6 +166,9 @@ const ProductDetail: React.FC = () => {
                 src={displayImage}
                 alt={product.name}
                 className="w-full h-96 lg:h-[500px] object-cover rounded-lg"
+                onError={(e) => {
+                  e.currentTarget.src = PHONE_IMAGE_PLACEHOLDER;
+                }}
               />
               <Badge
                 variant={product.condition === 'new' ? 'default' : 'secondary'}

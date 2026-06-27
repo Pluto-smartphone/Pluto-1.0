@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import type { Tables } from '@/integrations/supabase/types';
 
@@ -20,9 +21,9 @@ type OrderRow = Tables<'orders'>;
 
 const PaymentHistory: React.FC = () => {
   const { language, t } = useLanguage();
+  const { user, loading: authLoading } = useAuth();
   const [orders, setOrders] = useState<OrderRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [userId, setUserId] = useState<string | null>(null);
+  const [ordersLoading, setOrdersLoading] = useState(false);
 
   const loadOrders = useCallback(async (uid: string, email: string | undefined) => {
     const byUser = await supabase
@@ -71,57 +72,41 @@ const PaymentHistory: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      const uid = session?.user?.id ?? null;
-      if (cancelled) return;
-      setUserId(uid);
-      if (!uid) {
-        setLoading(false);
-        return;
-      }
-      await loadOrders(uid, session.user.email ?? undefined);
-      if (cancelled) return;
-      setLoading(false);
-    })();
+    if (authLoading) return;
 
-    const { data: sub } = supabase.auth.onAuthStateChange(async (_evt, session) => {
-      const uid = session?.user?.id ?? null;
-      setUserId(uid);
-      if (!uid) {
-        setOrders([]);
-        return;
-      }
-      await loadOrders(uid, session.user.email ?? undefined);
+    if (!user?.id) {
+      setOrders([]);
+      setOrdersLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setOrdersLoading(true);
+
+    void loadOrders(user.id, user.email ?? undefined).finally(() => {
+      if (!cancelled) setOrdersLoading(false);
     });
 
     return () => {
       cancelled = true;
-      sub.subscription.unsubscribe();
     };
-  }, [loadOrders]);
+  }, [authLoading, user?.id, user?.email, loadOrders]);
 
   useEffect(() => {
-    if (!userId) return;
+    if (!user?.id) return;
 
     const channel = supabase
-      .channel(`orders-user-${userId}`)
+      .channel(`orders-user-${user.id}`)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'orders',
-          filter: `user_id=eq.${userId}`,
+          filter: `user_id=eq.${user.id}`,
         },
         () => {
-          void (async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (session?.user?.id === userId) {
-              await loadOrders(userId, session.user.email ?? undefined);
-            }
-          })();
+          void loadOrders(user.id, user.email ?? undefined);
         }
       )
       .subscribe();
@@ -129,7 +114,9 @@ const PaymentHistory: React.FC = () => {
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [userId, loadOrders]);
+  }, [user?.id, user?.email, loadOrders]);
+
+  const loading = authLoading || (!!user && ordersLoading);
 
   const formatPrice = (amount: number | null) =>
     new Intl.NumberFormat('th-TH', { style: 'currency', currency: 'THB' }).format(amount ?? 0);
@@ -173,7 +160,7 @@ const PaymentHistory: React.FC = () => {
     }
   };
 
-  if (!userId && !loading) {
+  if (!user && !loading) {
     return (
       <main className="container mx-auto px-4 py-12 max-w-2xl">
         <Link to="/payment">
@@ -219,10 +206,10 @@ const PaymentHistory: React.FC = () => {
         <CardHeader>
           <CardTitle>{t('paymentHistorySubtitle')}</CardTitle>
           <p className="text-sm text-muted-foreground mt-2">
-    {language === 'th'
-      ? 'ข้อมูลการจัดส่งจะถูกส่งไปยังอีเมลของคุณ'
-      : 'Shipping information will be sent to your email.'}
-  </p>
+            {language === 'th'
+              ? 'ข้อมูลการจัดส่งจะถูกส่งไปยังอีเมลของคุณ'
+              : 'Shipping information will be sent to your email.'}
+          </p>
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -239,7 +226,6 @@ const PaymentHistory: React.FC = () => {
                     <TableHead>{t('paymentHistoryDate')}</TableHead>
                     <TableHead>{t('paymentHistorySession')}</TableHead>
                     <TableHead>{t('paymentHistoryStatus')}</TableHead>
-
                     <TableHead className="text-right">{t('total')}</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -260,7 +246,6 @@ const PaymentHistory: React.FC = () => {
                           )}
                         </div>
                       </TableCell>
-
                       <TableCell className="text-right font-medium">
                         {formatPrice(typeof o.amount_total === 'number' ? o.amount_total : Number(o.amount_total))}
                       </TableCell>

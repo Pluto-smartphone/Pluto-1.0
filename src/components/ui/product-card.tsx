@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ShoppingCart, Heart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,7 @@ import { useCart } from '@/contexts/CartContext';
 import { useWishlist } from '@/contexts/WishlistContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
+import { PHONE_IMAGE_PLACEHOLDER } from '@/lib/phone-image-url';
 
 interface ProductCardProps {
   product: Product;
@@ -30,6 +31,11 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, className }) => {
   };
 
   const isFavorited = isInWishlist(product.id);
+  const [imgSrc, setImgSrc] = useState(product.image || PHONE_IMAGE_PLACEHOLDER);
+
+  React.useEffect(() => {
+    setImgSrc(product.image || PHONE_IMAGE_PLACEHOLDER);
+  }, [product.image]);
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('th-TH', {
@@ -48,9 +54,11 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, className }) => {
         {/* Product Image */}
         <div className="relative overflow-hidden rounded-t-lg">
           <img
-            src={product.image}
+            src={imgSrc}
             alt={product.name}
             className="w-full h-48 object-cover transition-transform duration-500 group-hover:scale-105"
+            loading="lazy"
+            onError={() => setImgSrc(PHONE_IMAGE_PLACEHOLDER)}
           />
           
           {/* Condition Badge */}

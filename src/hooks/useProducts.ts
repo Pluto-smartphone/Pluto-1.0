@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { Tables } from '@/integrations/supabase/types';
 import type { Product } from '@/contexts/CartContext';
+import { toPublicPhoneImageUrl } from '@/lib/phone-image-url';
 
 // Use service role for public access (bypass RLS)
 const getPublicProducts = async () => {
@@ -28,14 +29,6 @@ const getPublicProducts = async () => {
 type DbPhone = Tables<'phones'>;
 type DbPhoneImage = Tables<'phone_images'>;
 
-const IMAGE_BUCKET = 'phone-images';
-
-const toPublicImageUrl = (storagePath: string) => {
-  if (!storagePath) return '/placeholder.svg';
-  if (storagePath.startsWith('http://') || storagePath.startsWith('https://')) return storagePath;
-  return supabase.storage.from(IMAGE_BUCKET).getPublicUrl(storagePath).data.publicUrl || '/placeholder.svg';
-};
-
 const mapDbPhoneToProduct = (
   phone: DbPhone,
   images: Pick<DbPhoneImage, 'storage_path' | 'display_order' | 'is_primary'>[] | null | undefined
@@ -49,8 +42,8 @@ const mapDbPhoneToProduct = (
   });
   
   // Use image from phone_images table if available, otherwise use placeholder
-  const image = sortedImages[0]?.storage_path 
-    ? toPublicImageUrl(sortedImages[0].storage_path) 
+  const image = sortedImages[0]?.storage_path
+    ? toPublicPhoneImageUrl(sortedImages[0].storage_path)
     : '/placeholder.svg';
 
   return {
@@ -90,6 +83,8 @@ export const useProducts = () => {
     },
     retry: 2,
     retryDelay: 1000,
+    staleTime: 60_000,
+    refetchOnWindowFocus: true,
   });
 };
 
