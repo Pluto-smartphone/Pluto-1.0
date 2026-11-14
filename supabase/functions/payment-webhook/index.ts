@@ -66,7 +66,7 @@ serve(async (req) => {
         httpClient: Stripe.createFetchHttpClient(),
       });
       const rawBody = await req.text();
-      const event = stripe.webhooks.constructEvent(rawBody, stripeSig, webhookSecret);
+      const event = await stripe.webhooks.constructEventAsync(rawBody, stripeSig, webhookSecret);
 
       if (
         event.type === "checkout.session.completed" ||
